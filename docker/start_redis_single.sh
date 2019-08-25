@@ -1,0 +1,1 @@
+docker run -d --rm --name redis-$(date | md5) -v $(pwd)/data:/data -p 6379:6379 redis:5-alpine redis-server --appendonly yes

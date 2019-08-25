@@ -1,0 +1,1 @@
+docker run -d --rm --name redis-$(date | md5) -p 30001:30001 redis:5-alpine redis-server --port 30001 --appendonly yes

@@ -1,0 +1,42 @@
+
+#app {
+  font-family: 'Avenir', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #2c3e50;
+
+  .btn {
+    padding: 5px;
+    font-size: 0.8em;
+  }
+
+  .splitpanes {
+    background: none;
+  }
+
+  .splitpanes__pane {
+    display: flex;
+    overflow: scroll;
+    justify-content: left;
+  }
+
+  .splitpanes--vertical > .splitpanes__splitter {
+    min-width: 3px;
+    background-color: #d6d8db;
+    margin: 0 5px 0 5px;
+  }
+
+  .splitpanes--horizontal > .splitpanes__splitter {
+    min-height: 3px;
+    background-color: #d6d8db;
+    margin: 5px 0 5px 0;
+  }
+
+
+  @media (min-width: 992px) {
+
+    .container {
+      max-width: 100%;
+    }
+  }
+}
