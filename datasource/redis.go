@@ -66,29 +66,29 @@ func (c *RedisClient) createClusterConnection(url string) error {
 		password = defaultOptions.Password
 	}
 	readTimeout := defaultOptions.ReadTimeout
-	if _, ok := c.Datasource.Configuration["ReadTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["ReadTimeout"])
+	if _, ok := c.Datasource.Configuration["readTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.Datasource.Configuration["readTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 	writeTimeout := defaultOptions.WriteTimeout
-	if _, ok := c.Datasource.Configuration["WriteTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["WriteTimeout"])
+	if _, ok := c.Datasource.Configuration["writeTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.Datasource.Configuration["writeTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 	maxConnAge := defaultOptions.MaxConnAge
-	if _, ok := c.Datasource.Configuration["MaxConnAge"]; ok {
-		age, err := strconv.Atoi(c.Datasource.Configuration["MaxConnAge"])
+	if _, ok := c.Datasource.Configuration["maxConnAge"]; ok {
+		age, err := strconv.Atoi(c.Datasource.Configuration["maxConnAge"])
 		if err == nil {
 			maxConnAge = time.Duration(age) * time.Minute
 		}
 	}
 	minIdleConns := defaultOptions.MinIdleConns
-	if _, ok := c.Datasource.Configuration["MinIdleConns"]; ok {
-		c, err := strconv.Atoi(c.Datasource.Configuration["MinIdleConns"])
+	if _, ok := c.Datasource.Configuration["minIdleConns"]; ok {
+		c, err := strconv.Atoi(c.Datasource.Configuration["minIdleConns"])
 		if err != nil {
 			minIdleConns = c
 		}
@@ -116,36 +116,47 @@ func (c *RedisClient) createSentinelConnection(url string) error {
 	defaultOptions := redis.FailoverOptions{}
 
 	var e error
+	var sentinelPassword string
 	var password string
+	var ok bool
+
 	if c.Datasource.Password != "" {
 		password = c.Datasource.Password
 	} else {
 		password = defaultOptions.Password
 	}
+
+	if sentinelPassword, ok = c.Datasource.Configuration["sentinelPassword"]; !ok {
+		sentinelPassword = defaultOptions.SentinelPassword
+	}
+
 	readTimeout := defaultOptions.ReadTimeout
-	if _, ok := c.Datasource.Configuration["ReadTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["ReadTimeout"])
+	if _, ok := c.Datasource.Configuration["readTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.Datasource.Configuration["readTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
+
 	writeTimeout := defaultOptions.WriteTimeout
-	if _, ok := c.Datasource.Configuration["WriteTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["WriteTimeout"])
+	if _, ok := c.Datasource.Configuration["writeTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.Datasource.Configuration["writeTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
+
 	maxConnAge := defaultOptions.MaxConnAge
-	if _, ok := c.Datasource.Configuration["MaxConnAge"]; ok {
-		age, err := strconv.Atoi(c.Datasource.Configuration["MaxConnAge"])
+	if _, ok := c.Datasource.Configuration["maxConnAge"]; ok {
+		age, err := strconv.Atoi(c.Datasource.Configuration["maxConnAge"])
 		if err == nil {
 			maxConnAge = time.Duration(age) * time.Minute
 		}
 	}
+
 	minIdleConns := defaultOptions.MinIdleConns
-	if _, ok := c.Datasource.Configuration["MinIdleConns"]; ok {
-		c, err := strconv.Atoi(c.Datasource.Configuration["MinIdleConns"])
+	if _, ok := c.Datasource.Configuration["minIdleConns"]; ok {
+		c, err := strconv.Atoi(c.Datasource.Configuration["minIdleConns"])
 		if err != nil {
 			minIdleConns = c
 		}
@@ -154,7 +165,8 @@ func (c *RedisClient) createSentinelConnection(url string) error {
 	opts := redis.FailoverOptions{
 		MasterName:       c.Datasource.Configuration["master"],
 		SentinelAddrs:    strings.Split(url, ","),
-		SentinelPassword: password,
+		SentinelPassword: sentinelPassword,
+		Password:         password,
 		ReadTimeout:      readTimeout,
 		WriteTimeout:     writeTimeout,
 		MaxConnAge:       maxConnAge,
@@ -180,29 +192,29 @@ func (c *RedisClient) createRedisConnection(url string) error {
 		password = defaultOptions.Password
 	}
 	readTimeout := defaultOptions.ReadTimeout
-	if _, ok := c.Datasource.Configuration["ReadTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["ReadTimeout"])
+	if _, ok := c.Datasource.Configuration["readTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.Datasource.Configuration["readTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 	writeTimeout := defaultOptions.WriteTimeout
-	if _, ok := c.Datasource.Configuration["WriteTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["WriteTimeout"])
+	if _, ok := c.Datasource.Configuration["writeTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.Datasource.Configuration["writeTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 	maxConnAge := defaultOptions.MaxConnAge
-	if _, ok := c.Datasource.Configuration["MaxConnAge"]; ok {
-		age, err := strconv.Atoi(c.Datasource.Configuration["MaxConnAge"])
+	if _, ok := c.Datasource.Configuration["maxConnAge"]; ok {
+		age, err := strconv.Atoi(c.Datasource.Configuration["maxConnAge"])
 		if err == nil {
 			maxConnAge = time.Duration(age) * time.Minute
 		}
 	}
 	minIdleConns := defaultOptions.MinIdleConns
-	if _, ok := c.Datasource.Configuration["MinIdleConns"]; ok {
-		c, err := strconv.Atoi(c.Datasource.Configuration["MinIdleConns"])
+	if _, ok := c.Datasource.Configuration["minIdleConns"]; ok {
+		c, err := strconv.Atoi(c.Datasource.Configuration["minIdleConns"])
 		if err != nil {
 			minIdleConns = c
 		}

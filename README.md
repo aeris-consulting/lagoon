@@ -71,8 +71,13 @@ See [Configuration Reference](https://cli.vuejs.org/config/).
 1. Copy visible content to the clipboard
 1. Support Kafka and streams
 1. Manage templates with placeholders to create content
-1. Extend basic functionalities: propose a "search" Tab, in addition to the "explore" one to navigate in all the 
+1. Extend basic features: 
+
+  * A "search" Tab, in addition to the "explore" one to navigate in all the 
 entrypoints and find the ones matching a simple query, like: `SET(my-key:*) HAVING length > 2` or `HASH(my-key:*) HAVING FIELD foo = bar`
+  * A visualization tab to see the evolution of data over time
+  * A processing tab (map, reduce)
+
 
 ## Resources
 * Web

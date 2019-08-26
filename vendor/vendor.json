@@ -125,6 +125,12 @@
 			"revisionTime": "2018-07-18T01:23:57Z"
 		},
 		{
+			"checksumSHA1": "2fJBVE4VzK78kSjDu9LuOmImBwY=",
+			"path": "github.com/spf13/cobra/cobra",
+			"revision": "b80588d523ec50c7fee20218426cf2ff70920f06",
+			"revisionTime": "2019-08-05T15:56:17Z"
+		},
+		{
 			"checksumSHA1": "ClyNDKGVhQH1K/IXbLZ1qMv0ddA=",
 			"path": "github.com/twinj/uuid",
 			"revision": "7bbe408d339787c56ec15568c947c0959db1b275",

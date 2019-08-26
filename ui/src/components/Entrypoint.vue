@@ -99,12 +99,17 @@
 
             deleteChildren: function () {
                 this.$emit('display-modal', {
+                    message: 'Not yet implemented',
+                    noHandler: () => {
+                    }
+                })
+                /*this.$emit('display-modal', {
                     message: 'Are you sure you want to delete all the children?',
                     yesHandler: () => {
                         this.dataSource.deleteEntrypointChildren(this.node);
                     }, noHandler: () => {
                     }
-                });
+                });*/
             },
 
             close: function () {
