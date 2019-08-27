@@ -33,10 +33,6 @@ func (c *RedisClient) Open() error {
 		pong, err := c.client.Ping().Result()
 		if err == nil {
 			log.Printf("Connection status of ping: %v\n", pong)
-
-			log.Printf("Client name %s \n", c.client.ClientGetName())
-			log.Printf("Client ID %s \n", c.client.ClientID())
-
 			c.activeStreams = true
 		} else {
 			log.Printf("ERROR When pinging: %s\n", err.Error())
@@ -99,13 +95,14 @@ func (c *RedisClient) createClusterConnection(url string) error {
 	}
 
 	opts := redis.ClusterOptions{
-		Addrs:          strings.Split(url, ","),
-		Password:       password,
-		ReadTimeout:    readTimeout,
-		WriteTimeout:   writeTimeout,
-		MaxConnAge:     maxConnAge,
-		MinIdleConns:   minIdleConns,
-		RouteByLatency: true,
+		Addrs:         strings.Split(url, ","),
+		Password:      password,
+		ReadTimeout:   readTimeout,
+		WriteTimeout:  writeTimeout,
+		MaxConnAge:    maxConnAge,
+		MinIdleConns:  minIdleConns,
+		ReadOnly:      false,
+		RouteRandomly: false,
 		OnConnect: func(conn *redis.Conn) error {
 			log.Printf("Connected to the cluster %v \n", strings.Split(url, ","))
 			return nil
@@ -490,14 +487,40 @@ func (c *RedisClient) sendValuesToChannel(values interface{}, target chan<- Data
 
 func (c *RedisClient) GetEntryPointInfos(entryPointValue EntryPoint) (EntryPointInfos, error) {
 	key := string(entryPointValue)
-	statusCmd := c.client.Type(key)
+
+	var (
+		keyType string
+		err     error
+	)
+
+	switch client := c.client.(type) {
+	case *redis.ClusterClient:
+		client.ReloadState()
+		loopError := client.ForEachNode(func(client *redis.Client) error {
+			log.Printf("Client: %v\n", client)
+			tmpResult, err := client.Type(key).Result()
+			if err != nil {
+				log.Println("Error", key, tmpResult)
+				return err
+			}
+			log.Println("Type of %s is %s", key, tmpResult)
+			keyType = tmpResult
+			return nil
+		})
+
+		if loopError != nil {
+			err = loopError
+		}
+	default:
+		//keyType, err = c.client.Type(key).Result()
+	}
+	keyType, err = c.client.Type(key).Result()
 	var infos EntryPointInfos
-	err := statusCmd.Err()
 
 	if err == nil {
 		var result EntryPointType
 		length := uint64(0)
-		t := strings.ToLower(statusCmd.Val())
+		t := strings.ToLower(keyType)
 		switch t {
 		case "string":
 			result = Value

@@ -47,10 +47,7 @@
 
             display: function () {
                 if (this.node.hasContent) {
-                    this.dataSource.refreshNodeDetails(this.node);
-                    if (this.node.content) {
-                        this.dataSource.selectNode(this.node);
-                    }
+                    this.dataSource.selectNode(this.node);
                 }
             },
 

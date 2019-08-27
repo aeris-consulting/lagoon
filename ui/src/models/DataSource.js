@@ -94,27 +94,50 @@ export default class DataSource {
     }
 
     addError(e) {
-        this.errors = [e.response.data.error];
+        if (e.response.data) {
+            this.errors = [e.response.data.error];
+        } else {
+            this.errors = [e];
+        }
     }
 
-    refreshNodeDetails(node) {
+    refreshNodeDetails(node, callback) {
         let fullName = node.getFullName();
+        let self = this;
 
         axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/info', {format: 'json'})
             .then(response => {
                 if (response.status === 200) {
                     node.info = response.data;
-                    node.contentComponent.lastRefresh = new Date();
 
-                    axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/content', {format: 'json'})
+                    axios.get(self.apiRoot + '/data/' + self.id + '/entrypoint/' + fullName + '/content', {format: 'json'})
                         .then(response => {
                             if (response.status === 200) {
                                 node.content = response.data;
-                                node.contentComponent.lastRefresh = new Date();
+                                callback();
+                            } else if (response.status === 202) {
+                                let receivedValues = [];
+                                let socket = new WebSocket(this.wsRoot + response.data.link);
+                                socket.onopen = () => {
+                                    socket.onmessage = ({data}) => {
+                                        let jsonData = JSON.parse(data);
+                                        if (jsonData.size) {
+                                            receivedValues = receivedValues.concat(jsonData.data);
+                                        } else {
+                                            setTimeout(() => {
+                                                node.content = {
+                                                    length: receivedValues.length,
+                                                    data: receivedValues
+                                                };
+                                                callback();
+                                            }, 0);
+                                        }
+                                    };
+                                };
                             }
                         })
                         .catch(e => {
-                            this.addError(e);
+                            self.addError(e);
                         });
                 }
             })

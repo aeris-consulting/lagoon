@@ -127,8 +127,12 @@
         },
 
         created() {
-            this.dataSource.refreshNodeDetails(this.node);
-            this.node.contentComponent = this;
+            let node = this.node;
+            let self = this;
+            this.dataSource.refreshNodeDetails(node, function () {
+                node.contentComponent = self;
+                node.contentComponent.lastRefresh = new Date()
+            });
         },
 
         beforeDestroy() {

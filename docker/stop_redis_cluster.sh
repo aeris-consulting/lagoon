@@ -1,4 +1,1 @@
-for i in {1..6}
-do
-  docker rm -f redis-cluster-node-${i}
-done
+ps -aef | grep redis-server | grep -v grep | awk '{print $2}' | xargs kill -15
