@@ -6,7 +6,7 @@
             <span class="status" v-if="dataSource.status !== null">{{ dataSource.status }}</span>
         </div>
 
-        <div :key="error.message" class="errors" v-for="error in dataSource.errors">{{ error.message }}</div>
+        <div :key="error" class="errors" v-for="error in dataSource.errors">{{ error }}</div>
 
         <div v-if="root.hasChildren() && root.children !== null">
             <entrypoint-children @display-modal="showConfirmation"

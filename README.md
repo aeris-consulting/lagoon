@@ -31,6 +31,16 @@ cd ui && npm run serve
 go build main.go
 ```
 
+### Declare the local database
+```
+curl -X PUT \
+  http://localhost:4000/datasource \
+  -H 'Content-Type: application/json;charset=UTF-8' \
+  -H 'Postman-Token: 70e64a69-b2f8-440d-8001-b141c3d657be' \
+  -H 'cache-control: no-cache' \
+  -d '{"vendor":"redis","name":"local", "bootstrap":"redis://localhost:6379"}'
+```
+
 ## Build 
 ### UI 
 ```
@@ -85,6 +95,7 @@ entrypoints and find the ones matching a simple query, like: `SET(my-key:*) HAVI
   * http://arlimus.github.io/articles/gin.and.gorilla/
   * https://gin-gonic.com/docs/examples/graceful-restart-or-stop/
 * Backend
+  * https://github.com/kardianos/govendor
   * https://gin-gonic.com/docs/examples/
   * https://github.com/nathantsoi/vue-native-websocket
 * Redis

@@ -30,9 +30,37 @@ export default class DataSource {
         console.log(this);
     }
 
-    listEntrypoints(filter, minLevel, maxLevel, completeAction, onError) {
+    listEntrypoints(entrypointPrefix, minLevel, maxLevel, completeAction, onError) {
         let receivedValues = [];
-        let actualFilter = filter ? filter : this.filter ? '*' + this.filter + '*' : '*';
+        let actualFilter;
+        let overallFilter = ('*' + this.filter + '*').replace(/[*]+/g, '*');
+
+        if (!entrypointPrefix) {
+            actualFilter = ('*' + this.filter + '*').replace(/[*]+/g, '*');
+        } else {
+            let entrypointRegex = new RegExp(entrypointPrefix);
+            entrypointPrefix = entrypointPrefix + ':*';
+            let overallRegex = new RegExp(overallFilter
+                .replace(/^[*]+/g, '')
+                .replace(/[*]+$/g, '')
+                .replace(/[*]+/g, '.*')
+            );
+
+            if (overallRegex.test(entrypointPrefix)) {
+                actualFilter = entrypointPrefix;
+            } else if (entrypointRegex.test(overallFilter
+                .replace(/^[*]+/g, '')
+                .replace(/[*]+$/g, '')
+            )) {
+                actualFilter = overallFilter;
+            } else {
+                // TODO Complex case.
+                actualFilter = entrypointPrefix + ','
+                    + overallFilter
+                        .replace(/[*]+/g, '.*')
+                        .replace(/[*]+/g, '*');
+            }
+        }
 
         axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint?min='
             + minLevel + '&max=' + maxLevel + '&filter=' + actualFilter, {format: 'json'})
@@ -58,11 +86,15 @@ export default class DataSource {
                 }
             })
             .catch(e => {
-                this.errors.push(e);
+                this.addError(e);
                 if (onError) {
                     onError(e);
                 }
             });
+    }
+
+    addError(e) {
+        this.errors = [e.response.data.error];
     }
 
     refreshNodeDetails(node) {
@@ -73,22 +105,23 @@ export default class DataSource {
                 if (response.status === 200) {
                     node.info = response.data;
                     node.contentComponent.lastRefresh = new Date();
+
+                    axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/content', {format: 'json'})
+                        .then(response => {
+                            if (response.status === 200) {
+                                node.content = response.data;
+                                node.contentComponent.lastRefresh = new Date();
+                            }
+                        })
+                        .catch(e => {
+                            this.addError(e);
+                        });
                 }
             })
             .catch(e => {
-                this.errors.push(e)
+                this.addError(e);
             });
 
-        axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/content', {format: 'json'})
-            .then(response => {
-                if (response.status === 200) {
-                    node.content = response.data;
-                    node.contentComponent.lastRefresh = new Date();
-                }
-            })
-            .catch(e => {
-                this.errors.push(e)
-            });
     }
 
     deleteEntrypoint(node) {
@@ -102,7 +135,7 @@ export default class DataSource {
                 }
             })
             .catch(e => {
-                this.errors.push(e)
+                this.addError(e);
             });
     }
 
@@ -124,7 +157,7 @@ export default class DataSource {
                 }
             })
             .catch(e => {
-                this.errors.push(e)
+                this.addError(e);
             });
     }
 
@@ -133,7 +166,6 @@ export default class DataSource {
         setTimeout(() => {
             this.selectedNodes.push(node);
         }, 0);
-
     }
 
     unselectNode(node) {
