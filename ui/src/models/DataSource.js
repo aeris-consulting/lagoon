@@ -170,7 +170,7 @@ export default class DataSource {
                 if (response.status === 202) {
                     let socket = new WebSocket(this.wsRoot + response.data.link);
                     socket.onopen = () => {
-                        socket.onmessage = ({data}) => {
+                        socket.onmessage = () => {
                             setTimeout(() => {
                                 node.parent.component.refresh();
                                 this.unselectNode(node);
@@ -191,6 +191,7 @@ export default class DataSource {
         }, 0);
     }
 
+    // eslint-disable-next-line
     unselectNode(node) {
         this.selectedNodes = [];
     }
