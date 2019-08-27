@@ -81,13 +81,13 @@
 
                 if (value) {
                     let self = this;
-                    this.$copyText(value).then(function (e) {
+                    this.$copyText(value).then(function () {
                         self.$emit('display-modal', {
                             message: 'The list of direct children was copied to your clipboard',
                             yesHandler: () => {
                             }
                         });
-                    }, function (e) {
+                    }, function () {
                         self.$emit('display-modal', {
                             message: 'The list of direct children could not be copied to your clipboard!!!',
                             yesHandler: () => {
@@ -158,7 +158,7 @@
                     }
                     this.loading = false;
                     this.open = true;
-                }, error => {
+                }, () => {
                     this.loading = false;
                     this.open = false;
                 });

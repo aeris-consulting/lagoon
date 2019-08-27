@@ -1,12 +1,30 @@
 <template>
     <div id="entrypoints">
+        <div class="alerts-container">
+            <v-alert
+                :key="error.message" class="errors" v-for="(error, i) in dataSource.errors"
+                value="true"
+                @input="dismissErrorMessage(i)"
+                border="left"
+                close-text="Close Alert"
+                type="error"
+                dark
+                dismissible>
+                {{ error.message }}
+            </v-alert>
+        </div>
         <div>
-            <input id="overall-filter" v-model="dataSource.filter"/>
-            <button @click="refresh()" class="btn btn-outline-primary">List</button>
+            <div>
+                <div class="filter-container">
+                    <v-text-field
+                        v-model="dataSource.filter"
+                        label="Filter"
+                    ></v-text-field>
+                </div>
+                <v-btn class="" color="primary" @click="refresh()">List</v-btn>
+            </div>
             <span class="status" v-if="dataSource.status !== null">{{ dataSource.status }}</span>
         </div>
-
-        <div :key="error.message" class="errors" v-for="error in dataSource.errors">{{ error.message }}</div>
 
         <div v-if="root.hasChildren() && root.children !== null">
             <entrypoint-children @display-modal="showConfirmation"
@@ -50,17 +68,30 @@
                         self.root.addChildNode(new Node(value.path, value.length, value.hasContent))
                     });
                     self.dataSource.status = null;
-                }, error => {
+                }, () => {
                     self.dataSource.status = null;
                 });
+            },
+
+            dismissErrorMessage: function(errorIndex) {
+                this.dataSource.errors.splice(errorIndex, 1);
             }
         }
     }
 </script>
 
 <style lang="scss" scoped>
-    input#overall-filter {
+    .filter-container {
         margin-right: 15px;
+        width: 200px;
+        display: inline-block;
+    }
+
+    .alerts-container {
+        position: fixed;
+        z-index: 9999;
+        top: 80px;
+        right: 20px;
     }
 
     div#entrypoints {

@@ -1,29 +1,38 @@
 <template>
-    <div class="container" id="app">
-        <div class="container" id="header">
-            <h1 @click="refresh" class="logo">Lagoon</h1>
-        </div>
-        <div class="container" id="content">
-            <data-source @display-modal="showConfirmation"></data-source>
-        </div>
+    <v-app>
+        <div class="" id="app-container">
+            <v-app-bar
+                color="primary" dark>
+                <v-toolbar-title class="app-logo" @click="refresh">Lagoon</v-toolbar-title>
+                <div class="flex-grow-1"></div>
+                <v-btn icon
+                    @click="toGithub">
+                    <font-awesome-icon :icon="['fab', 'github']" size="2x"/>
+                </v-btn>
+            </v-app-bar>
+            <div id="content">
+                <data-source @display-modal="showConfirmation"></data-source>
+            </div>
 
-        <!-- https://www.npmjs.com/package/vue-js-modal -->
-        <v-dialog/>
-    </div>
+            <!-- https://www.npmjs.com/package/vue-js-modal -->
+            <v-dialog/>
+        </div>
+    </v-app>
 </template>
 
 <script>
     import DataSource from './components/DataSource.vue'
 
     export default {
-        name: 'app',
+        name: 'app-container',
 
         components: {
             DataSource
         },
 
         data() {
-            return {}
+            return {
+            }
         },
 
         methods: {
@@ -56,6 +65,10 @@
                 });
             },
 
+            toGithub: function () {
+                window.open("https://github.com/ericjesse/lagoon", "_blank");
+            },
+
             refresh: function () {
                 window.document.location.reload();
             }
@@ -66,11 +79,14 @@
 <style lang="scss">
     @import '../node_modules/splitpanes/dist/splitpanes.css';
     @import '../node_modules/bootstrap/scss/bootstrap.scss';
+    @import '../node_modules/vuetify/dist/vuetify.min.css';
+    @import '../node_modules/@mdi/font/css/materialdesignicons.css';
     @import "./assets/custom.scss";
 
-    #header {
-        h1.logo {
-            cursor: pointer;
-        }
+    .app-logo {
+        cursor: pointer;
+    }
+    #content {
+        margin: 10px 10px 0 10px;
     }
 </style>

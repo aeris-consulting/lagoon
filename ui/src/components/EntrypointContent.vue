@@ -2,7 +2,7 @@
     <div class="entrypoint-content">
         <div v-if="node">
             <h2>{{ node.getFullName() }}</h2>
-            <div class="container">
+            <div>
                 <div class="button-bar row justify-content-between">
                     <div class="col-6">
                         <font-awesome-icon @click="refresh()" class="icon" icon="sync"/>
@@ -44,7 +44,7 @@
                         </tr>
                         </thead>
                         <tbody>
-                        <tr :key="k" class="content-data" v-for="v,k in node.content.data[0]">
+                        <tr class="content-data" v-for="(v,k) in node.content.data[0]" :key="k">
                             <td>{{ k }}</td>
                             <td>{{ v }}</td>
                         </tr>
@@ -55,7 +55,7 @@
                 <div class="content-data" v-else>
                     <table>
                         <tbody>
-                        <tr :key="i" v-for="v,i in node.content.data">
+                        <tr :key="i" v-for="(v, i) in node.content.data">
                             <td>{{ v }}</td>
                         </tr>
                         </tbody>

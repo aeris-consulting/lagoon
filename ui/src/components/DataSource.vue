@@ -1,38 +1,31 @@
 <template>
-    <div id="datasources">
-        <div class="container" v-if="selectedDatasource === null">
-            <button @click="refresh()" class="btn btn-outline-primary">Refresh data sources</button>
+    <div>
+        <div v-if="selectedDatasource === null">
+            <v-btn @click="refresh()" color="primary">Refresh data sources</v-btn>
 
-            <div v-if="datasources !== null && datasources.length > 0">
-                <div class="row header">
-                    <div class="col-sm">
-                        Name
-                    </div>
-                    <div class="col-sm">
-                        Description
-                    </div>
-                </div>
-                <div :key="datasource.uuid" @click="select(datasource)"
-                     class="row item" v-for="datasource in datasources">
-                    <div class="col-sm">
-                        {{ datasource.name }}
-                    </div>
-                    <div class="col-sm">
-                        <span class="description" v-if="datasource.description">{{ datasource.description }}</span><span
-                            class="no-description" v-else>None</span>
-                    </div>
-                </div>
+            <div class="datasources" v-if="datasources !== null && datasources.length > 0">
+                <v-list>
+                    <v-list-item
+                        :key="datasource.uuid"
+                        @click="select(datasource)"
+                        v-for="datasource in datasources">
+                        <v-list-item-content>
+                            <v-list-item-title>{{ datasource.name }}</v-list-item-title>
+                            <v-list-item-subtitle v-if="datasource.description">{{ datasource.description }}</v-list-item-subtitle>
+                        </v-list-item-content>
+                    </v-list-item>
+                </v-list>
             </div>
         </div>
 
-        <div class="container" v-else>
-            <splitpanes style="height:available" vertical>
+        <div v-else>
+            <splitpanes style="height: 400px" vertical>
                 <entrypoint-list @display-modal="showConfirmation" splitpanes-min=10
                                  v-bind:dataSource="selectedDatasource"></entrypoint-list>
                 <entrypoint-content :key="n.getFullName()"
                                     @display-modal="showConfirmation"
                                     v-bind:dataSource="selectedDatasource" v-bind:node="n"
-                                    v-for="n,i in selectedDatasource.selectedNodes"></entrypoint-content>
+                                    v-for="n in selectedDatasource.selectedNodes"></entrypoint-content>
             </splitpanes>
         </div>
     </div>
@@ -89,21 +82,8 @@
 
 <style lang="scss" scoped>
 
-    #datasources {
-
-        .header {
-            font-size: 1.1em;
-            font-weight: bold;
-        }
-
-        .item {
-            cursor: pointer;
-
-            .no-description {
-                font-style: italic;
-            }
-
-        }
+    .datasources {
+        margin-top: 10px;
     }
 
 
