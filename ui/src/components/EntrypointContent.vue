@@ -1,72 +1,89 @@
 <template>
-    <div class="entrypoint-content">
-        <div v-if="node">
-            <h2>{{ node.getFullName() }}</h2>
-            <div>
-                <div class="button-bar row justify-content-between">
-                    <div class="col-6">
-                        <font-awesome-icon @click="refresh()" class="icon" icon="sync"/>
-                        <font-awesome-icon @click="observe()" class="icon" icon="play" v-if="!observing"/>
-                        <font-awesome-icon @click="stopObserve()" class="icon" icon="stop" v-if="observing"/>
-                        <input class="observation-frequency" v-model="observationFrequency"> seconds
-                    </div>
-                    <div class="col-4">
-                        <font-awesome-icon @click="edit()" class="icon" icon="edit" v-if="!dataSource.readonly"/>
-                        <font-awesome-icon @click="erase()" class="icon" icon="trash" v-if="!dataSource.readonly"/>
-                    </div>
-                </div>
+    <v-container fluid>
+        <v-row>
+            <v-col cols="8">
+                <v-btn icon @click="refresh()" small>
+                    <font-awesome-icon icon="sync"/>
+                </v-btn>
+                <v-btn icon @click="observe()" small v-if="!observing">
+                    <font-awesome-icon icon="play"/>
+                </v-btn>
+                <v-btn icon @click="stopObserve()" small v-if="observing">
+                    <font-awesome-icon icon="stop"/>
+                </v-btn>
+                <input type="number" class="frequency-input" v-model="observationFrequency"/> seconds
+            </v-col>
+            <v-col cols="4">
+                <v-row justify="end">
+                    <v-btn icon @click="edit()" small v-if="!dataSource.readonly">
+                        <font-awesome-icon icon="edit"/>
+                    </v-btn>
+                    <v-btn icon @click="erase()" small v-if="!dataSource.readonly">
+                        <font-awesome-icon icon="trash"/>
+                    </v-btn>
+                </v-row>
+            </v-col>
+        </v-row>
+
+        <v-list>
+            <v-list-item v-if="lastRefresh !== null">
+                <v-list-item-icon>
+                    <v-icon>mdi-clock</v-icon>
+                    <v-list-item-content>
+                        <v-list-item-title>
+                            {{ lastRefresh.toISOString() }}
+                        </v-list-item-title>
+                    </v-list-item-content>
+                </v-list-item-icon>
+            </v-list-item>
+            <template v-if="node.info">
+                <v-subheader>INFORMATION</v-subheader>
+                <v-list-item>
+                    <v-list-item-content>
+                        <v-list-item-title>{{ node.info.type.toLowerCase() }}</v-list-item-title>
+                        <v-list-item-subtitle>type of node</v-list-item-subtitle>
+                    </v-list-item-content>
+                </v-list-item>
+                <v-list-item>
+                    <v-list-item-content>
+                        <v-list-item-title>{{ node.info.length }}</v-list-item-title>
+                        <v-list-item-subtitle>length of value</v-list-item-subtitle>
+                    </v-list-item-content>
+                </v-list-item>
+            </template>
+        </v-list>
+
+        <div class="content" v-if="node.content && node.info">
+            <h3>Content</h3>
+            <div v-if="node.info.type == 'HASH'">
+                <table>
+                    <thead>
+                    <tr class="content-header">
+                        <td>Field</td>
+                        <td>Value</td>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="content-data" v-for="(v,k) in node.content.data[0]" :key="k">
+                        <td>{{ k }}</td>
+                        <td>{{ v }}</td>
+                    </tr>
+                    </tbody>
+                </table>
             </div>
 
-            <div class="content-timestamp" v-if="lastRefresh !== null">
-                <h3>Data timestamp</h3>
-                <div class="content-timestamp-data">
-                    {{ lastRefresh.toISOString() }}
-                </div>
-            </div>
-
-            <div class="info" v-if="node.info">
-                <h3>Information</h3>
-                <div class="info-data">
-                    <span>Type: {{ node.info.type.toLowerCase() }}</span>
-                    <br/>
-                    <span>Length: {{ node.info.length }}</span>
-                </div>
-            </div>
-
-            <div class="content" v-if="node.content && node.info">
-                <h3>Content</h3>
-                <div v-if="node.info.type == 'HASH'">
-                    <table>
-                        <thead>
-                        <tr class="content-header">
-                            <td>Field</td>
-                            <td>Value</td>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr class="content-data" v-for="(v,k) in node.content.data[0]" :key="k">
-                            <td>{{ k }}</td>
-                            <td>{{ v }}</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="content-data" v-else>
-                    <table>
-                        <tbody>
-                        <tr :key="i" v-for="(v, i) in node.content.data">
-                            <td>{{ v }}</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="content-data" v-else>
+                <table>
+                    <tbody>
+                    <tr :key="i" v-for="(v, i) in node.content.data">
+                        <td>{{ v }}</td>
+                    </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
-        <div v-else>No node selected</div>
-    </div>
+    </v-container>
 </template>
-
 <script>
     export default {
         name: 'EntrypointContent',
@@ -103,12 +120,10 @@
             },
 
             scheduleNextRefresh: function () {
-                this.observationFlag = setTimeout(() => {
-                    if (this.observing) {
-                        this.refresh();
-                        this.scheduleNextRefresh();
-                    }
-                }, this.observationFrequency * 1000);
+                if (this.observing) {
+                    this.refresh();
+                    this.scheduleNextRefresh();
+                }
             },
 
             edit: function () {
@@ -139,6 +154,11 @@
 </script>
 
 <style lang="scss" scoped>
+    input.frequency-input {
+        width: 40px !important;
+        margin-left: 10px;
+    }
+
     .entrypoint-content {
 
         width: 100%;

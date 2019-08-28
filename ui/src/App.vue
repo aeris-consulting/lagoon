@@ -11,9 +11,23 @@
                 </v-btn>
             </v-app-bar>
             <div id="content">
-                <data-source @display-modal="showConfirmation"></data-source>
+                <data-source 
+                    @display-modal="showConfirmation">
+                </data-source>
             </div>
 
+            <v-snackbar
+                v-model="showSnackbar"
+                :timeout="4000">
+                {{ snakebarText }}
+                <v-btn
+                    color="red darken-2"
+                    text
+                    dark
+                    @click="showSnackbar = false">
+                    Close
+                </v-btn>
+            </v-snackbar>
             <!-- https://www.npmjs.com/package/vue-js-modal -->
             <v-dialog/>
         </div>
@@ -22,6 +36,7 @@
 
 <script>
     import DataSource from './components/DataSource.vue'
+    import EventBus from './eventBus'
 
     export default {
         name: 'app-container',
@@ -32,10 +47,17 @@
 
         data() {
             return {
+                showSnackbar: false,
+                snakebarText: ''
             }
         },
 
         methods: {
+            showSnakebar: function(event) {
+                this.snakebarText = event.message;
+                this.showSnackbar = true;
+            },
+
             showConfirmation: function (event) {
                 let buttons = [];
                 if (event.noHandler) {
@@ -72,6 +94,10 @@
             refresh: function () {
                 window.document.location.reload();
             }
+        },
+
+        mounted() {
+            EventBus.$on('display-snakebar', this.showSnakebar);
         }
     }
 </script>

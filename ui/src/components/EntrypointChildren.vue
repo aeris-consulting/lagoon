@@ -1,6 +1,7 @@
 <template>
     <div class="data" v-if="values.length" v-show="visible">
-        <entrypoint @display-modal="showConfirmation" v-bind:dataSource="dataSource" v-bind:key="child.name"
+        <entrypoint @display-modal="showConfirmation" 
+                    v-bind:dataSource="dataSource" v-bind:key="child.name"
                     v-bind:node="child" v-for="child in values"></entrypoint>
     </div>
 </template>

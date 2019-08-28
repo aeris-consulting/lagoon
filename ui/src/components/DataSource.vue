@@ -19,13 +19,32 @@
         </div>
 
         <div v-else>
-            <splitpanes style="height: 400px" vertical>
-                <entrypoint-list @display-modal="showConfirmation" splitpanes-min=10
+            <splitpanes watchSlots vertical class="splitpanes">
+                <entrypoint-list @display-modal="showConfirmation"
+                                 splitpanes-min=10
                                  v-bind:dataSource="selectedDatasource"></entrypoint-list>
-                <entrypoint-content :key="n.getFullName()"
-                                    @display-modal="showConfirmation"
-                                    v-bind:dataSource="selectedDatasource" v-bind:node="n"
-                                    v-for="n in selectedDatasource.selectedNodes"></entrypoint-content>
+                <template v-if="selectedDatasource.selectedNodes.length > 0">
+                    <v-tabs
+                        background-color="primary"
+                        dark>
+                        <template v-for="n in selectedDatasource.selectedNodes">
+                            <v-tab :key="n.getFullName()">
+                                {{ n.getFullName() }}
+                            </v-tab>
+                            <v-tab-item :key="n.getFullName() + '-tab-item'">
+                                <entrypoint-content 
+                                                    @display-modal="showConfirmation"
+                                                    v-bind:dataSource="selectedDatasource" v-bind:node="n"
+                                                    ></entrypoint-content>
+                            </v-tab-item>
+                        </template>
+                    </v-tabs>
+                </template>
+                <template v-else>
+                    <div>
+                        No node selected
+                    </div>
+                </template>
             </splitpanes>
         </div>
     </div>
@@ -86,5 +105,8 @@
         margin-top: 10px;
     }
 
+    .splitpanes {
+        min-height: 40vh;
+    }
 
 </style>

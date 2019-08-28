@@ -6,19 +6,39 @@
         <span @click="display()" class="name" v-bind:class="{ 'content': node.hasContent}">{{ node.name }}</span>
         <span class="childrenLength"
               v-if="node.hasChildren()">({{ node.length ? node.length : node.children.length }})
-            <font-awesome-icon @click="add()" class="icon-right" icon="plus"/>
-            <font-awesome-icon @click="refresh()" class="icon-right" icon="sync" v-if="node.hasChildren() && open"/>
-            <font-awesome-icon @click="copyChildrenList()" class="icon-right" icon="copy"
-                               v-if="node.hasChildren() && open"/>
-            <font-awesome-icon @click="deleteChildren()" class="icon-right" icon="trash" v-if="!dataSource.readonly"/>
+            <v-btn icon @click="add()" x-small>
+              <font-awesome-icon icon="plus"/>
+            </v-btn>
+            <v-btn 
+                icon @click="refresh()" x-small 
+                v-if="node.hasChildren() && open">
+              <font-awesome-icon icon="sync"/>
+            </v-btn>
+            <v-btn icon @click="copyChildrenList()" x-small
+                v-if="node.hasChildren() && open">
+              <font-awesome-icon icon="copy"/>
+            </v-btn>
+            <v-btn icon @click="deleteChildren()" x-small
+                v-if="!dataSource.readonly">
+              <font-awesome-icon icon="trash"/>
+            </v-btn>
         </span>
-
+        <span>
+            <v-progress-circular
+                v-if="loading"
+                indeterminate
+                :size="10"
+                :width="2"
+                color="primary"
+            ></v-progress-circular>
+        </span>
     </li>
 </template>
 
 <script>
-    import Node from "../models/Node";
-    import EntrypointChildren from "./EntrypointChildren";
+    import Node from '../models/Node';
+    import EntrypointChildren from './EntrypointChildren';
+    import EventBus from '../eventBus'
     import Vue from 'vue';
 
     export default {
@@ -42,6 +62,10 @@
         methods: {
             showConfirmation: function (event) {
                 this.$emit('display-modal', event);
+            },
+
+            showSnakebar: function (event) {
+                EventBus.$emit('display-snakebar', event);
             },
 
             display: function () {
@@ -80,29 +104,22 @@
                 });
 
                 if (value) {
-                    let self = this;
                     this.$copyText(value).then(function () {
-                        self.$emit('display-modal', {
-                            message: 'The list of direct children was copied to your clipboard',
-                            yesHandler: () => {
-                            }
+                        EventBus.$emit('display-snakebar', {
+                            message: 'The list of direct children was copied to your clipboard'
                         });
                     }, function () {
-                        self.$emit('display-modal', {
-                            message: 'The list of direct children could not be copied to your clipboard!!!',
-                            yesHandler: () => {
-                            }
+                        EventBus.$emit('display-snakebar', {
+                            message: 'The list of direct children could not be copied to your clipboard!!!'
                         });
                     })
                 }
             },
 
             deleteChildren: function () {
-                this.$emit('display-modal', {
-                    message: 'Not yet implemented',
-                    noHandler: () => {
-                    }
-                })
+                EventBus.$emit('display-snakebar', {
+                    message: 'Not yet implemented'
+                });
                 /*this.$emit('display-modal', {
                     message: 'Are you sure you want to delete all the children?',
                     yesHandler: () => {
@@ -122,7 +139,7 @@
             refresh: function () {
                 this.loading = true;
                 let self = this;
-
+                    
                 if (this.node.children !== null) {
                     this.node.children.clear();
                 }
@@ -156,6 +173,7 @@
                     } else {
                         this.childrenComponent.children = this.node.children.values();
                     }
+
                     this.loading = false;
                     this.open = true;
                 }, () => {

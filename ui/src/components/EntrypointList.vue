@@ -2,8 +2,8 @@
     <div id="entrypoints">
         <div class="alerts-container">
             <v-alert
-                :key="error.message" class="errors" v-for="(error, i) in dataSource.errors"
-                value="true"
+                :key="i" class="errors" v-for="(error, i) in dataSource.errors"
+                :value="true"
                 @input="dismissErrorMessage(i)"
                 border="left"
                 close-text="Close Alert"
@@ -22,8 +22,14 @@
                     ></v-text-field>
                 </div>
                 <v-btn class="" color="primary" @click="refresh()">List</v-btn>
+                <v-progress-circular
+                    class="loading-circle"
+                    v-if="dataSource.status !== null"
+                    indeterminate
+                    color="green">
+                </v-progress-circular>
             </div>
-            <span class="status" v-if="dataSource.status !== null">{{ dataSource.status }}</span>
+            <!-- <span class="status" v-if="dataSource.status !== null">{{ dataSource.status }}</span> -->
         </div>
 
         <div v-if="root.hasChildren() && root.children !== null">
@@ -58,12 +64,10 @@
             },
 
             refresh: function () {
-                this.dataSource.status = 'Loading...';
+                this.dataSource.status = 'loading';
                 let self = this;
                 this.root.clear();
-
                 this.dataSource.listEntrypoints(null, 0, 0, receivedValues => {
-                    self.dataSource.status = "Displaying...";
                     receivedValues.forEach(value => {
                         self.root.addChildNode(new Node(value.path, value.length, value.hasContent))
                     });
@@ -101,5 +105,9 @@
 
     div#entrypoints div.data {
         text-align: left;
+    }
+
+    .loading-circle {
+        margin-left: 10px;
     }
 </style>
