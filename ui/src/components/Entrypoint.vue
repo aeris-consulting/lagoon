@@ -6,9 +6,9 @@
         <span @click="display()" class="name" v-bind:class="{ 'content': node.hasContent}">{{ node.name }}</span>
         <span class="childrenLength"
               v-if="node.hasChildren()">({{ node.length ? node.length : node.children.length }})
-            <v-btn icon @click="add()" x-small>
+            <!-- <v-btn icon @click="add()" x-small>
               <font-awesome-icon icon="plus"/>
-            </v-btn>
+            </v-btn> -->
             <v-btn 
                 icon @click="refresh()" x-small 
                 v-if="node.hasChildren() && open">
@@ -18,10 +18,10 @@
                 v-if="node.hasChildren() && open">
               <font-awesome-icon icon="copy"/>
             </v-btn>
-            <v-btn icon @click="deleteChildren()" x-small
+            <!-- <v-btn icon @click="deleteChildren()" x-small
                 v-if="!dataSource.readonly">
               <font-awesome-icon icon="trash"/>
-            </v-btn>
+            </v-btn> -->
         </span>
         <span>
             <v-progress-circular
@@ -69,14 +69,16 @@
             },
 
             display: function () {
-                this.dataSource.selectNode(this.node);
+                if (this.node.hasContent) {
+                    this.dataSource.selectNode(this.node);
+                }
             },
 
             toggleOpen: function () {
                 if (this.node.hasChildren()) {
                     if (!this.open) {
                         if (this.childrenComponent === null) {
-                            this.refresh();
+                            this.refreshChildren();
                         } else if (this.childrenComponent !== null) {
                             this.open = !this.open;
                             this.childrenComponent.visible = true;
@@ -136,7 +138,7 @@
                 this.childrenComponent = null;
             },
 
-            refresh: function () {
+            refreshChildren: function () {
                 this.loading = true;
                 let self = this;
                     
@@ -144,18 +146,7 @@
                     this.node.children.clear();
                 }
 
-                let fullName = this.node.getFullName();
-                let actualFilter;
-
-                // TODO Replace: fullName.indexOf(this.dataSource.filter) >=0 by actualFilter.matches(this.dataSource.filter).
-                // This requires to convert actualFilter into a valid regex.
-                if (fullName.indexOf(this.dataSource.filter) >= 0) {
-                    actualFilter = fullName + ':*'
-                } else {
-                    actualFilter = fullName + ':*' + this.dataSource.filter + '*';
-                }
-
-                this.dataSource.listEntrypoints(actualFilter, this.node.level, this.node.level, receivedValues => {
+                this.dataSource.listEntrypoints(this.node.getFullName(), this.node.level, this.node.level, receivedValues => {
                     receivedValues.forEach(value => {
                         self.node.addChildNode(new Node(value.path, value.length, value.hasContent))
                     });

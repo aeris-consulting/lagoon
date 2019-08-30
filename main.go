@@ -7,13 +7,13 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/spf13/cobra"
 	"github.com/twinj/uuid"
 	"lagoon/datasource"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const MaxLevel = ^uint(0)
@@ -37,6 +37,24 @@ var dataSources []dataSourceInfos
 var webSocketUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+}
+
+var rootCmd = &cobra.Command{
+	Use:   "lagoon",
+	Short: "Lagoon is a GUI to visualize data from various middleware",
+	Long: `A friendly GUI to explore and work on data
+                provided by Redis and others.
+                Complete documentation is available at https://github.com/ericjesse/lagoon`,
+	Run: func(cmd *cobra.Command, args []string) {
+		r := setupRouter()
+		// Listen and Server in 0.0.0.0:4000
+		r.Run(":4000")
+	},
+}
+
+func init() {
+	// TODO
+	// rootCmd.PersistentFlags().IntVar()
 }
 
 func setupRouter() *gin.Engine {
@@ -312,14 +330,6 @@ func readChannelContentAndSendToWebSocket(c *gin.Context) {
 		return
 	}
 
-	defer func() {
-		go func() {
-			time.Sleep(20 * time.Second)
-			log.Printf("Closing web socket %s\n", wsUuid)
-			conn.Close()
-		}()
-	}()
-
 	log.Printf("Reading channel data for %s\n", wsUuid)
 	if dataChannel != nil {
 		for data := range dataChannel {
@@ -346,7 +356,5 @@ func readChannelContentAndSendToWebSocket(c *gin.Context) {
 }
 
 func main() {
-	r := setupRouter()
-	// Listen and Server in 0.0.0.0:4000
-	r.Run(":4000")
+	rootCmd.Execute()
 }

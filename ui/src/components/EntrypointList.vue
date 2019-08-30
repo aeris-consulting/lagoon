@@ -29,7 +29,6 @@
                     color="green">
                 </v-progress-circular>
             </div>
-            <!-- <span class="status" v-if="dataSource.status !== null">{{ dataSource.status }}</span> -->
         </div>
 
         <div v-if="root.hasChildren() && root.children !== null">

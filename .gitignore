@@ -20,3 +20,5 @@ yarn-error.log*
 *.sw?
 /package-lock.json
 /docker/data/
+/docker/nohup.out
+/docker/cluster-data/

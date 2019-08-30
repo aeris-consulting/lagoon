@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -50,7 +51,6 @@ func (c *RedisClient) createConnection() error {
 		return c.createSentinelConnection(parts[1])
 	case "redis":
 		return c.createRedisConnection(parts[1])
-
 	}
 	return errors.New(fmt.Sprintf("Protocol %s is unkown for Redis", parts[0]))
 }
@@ -95,20 +95,23 @@ func (c *RedisClient) createClusterConnection(url string) error {
 	}
 
 	opts := redis.ClusterOptions{
-		Addrs:          strings.Split(url, ","),
-		Password:       password,
-		ReadTimeout:    readTimeout,
-		WriteTimeout:   writeTimeout,
-		MaxConnAge:     maxConnAge,
-		MinIdleConns:   minIdleConns,
-		RouteByLatency: true,
+		Addrs:         strings.Split(url, ","),
+		Password:      password,
+		ReadTimeout:   readTimeout,
+		WriteTimeout:  writeTimeout,
+		MaxConnAge:    maxConnAge,
+		MinIdleConns:  minIdleConns,
+		ReadOnly:      false,
+		RouteRandomly: false,
 		OnConnect: func(conn *redis.Conn) error {
 			log.Printf("Connected to the cluster %v \n", strings.Split(url, ","))
 			return nil
 		},
 	}
-	c.client = redis.NewClusterClient(&opts)
-	log.Printf("Connection to the cluster %v was created \n", strings.Split(url, ","))
+	client := redis.NewClusterClient(&opts)
+	c.client = client
+	log.Printf("Connection to the cluster %v was created\n", strings.Split(url, ","))
+
 	return e
 }
 
@@ -264,30 +267,102 @@ func (c *RedisClient) ListEntryPoints(filter string, entrypointsChannel chan<- D
 }
 
 func (c *RedisClient) extractEntryPointsWithLevels(err error, filter string, minTreeLevel uint, maxTreeLevel uint, entrypointsChannel chan<- DataBatch) {
-	var cursor uint64
-	var (
-		keys       []string
-		tokens     []string
-		entrypoint string
-	)
 	var entrypoints = make(map[string]*EntryPointNode)
-	for {
-		keys, cursor, err = c.client.Scan(cursor, filter, scanSize).Result()
-		if err != nil {
-			break
-		} else {
+
+	filterTokens := strings.Split(filter, ",")
+	scanFilter := filterTokens[0]
+	var regexFilter *regexp2.Regexp
+	if len(filterTokens) > 1 {
+		regexFilter, _ = regexp2.Compile(filterTokens[1])
+	}
+
+	var scannedKeyCount int
+	switch client := c.client.(type) {
+	case *redis.ClusterClient:
+		mutex := sync.Mutex{}
+		loopError := client.ForEachNode(func(client *redis.Client) error {
+			roleResult, err := client.Do("ROLE").Result()
+			if err == nil {
+				role := (roleResult.([]interface{})[0]).(string)
+				if "master" == strings.ToLower(role) {
+					log.Printf("Scanning keys on %v\n", roleResult)
+					err, count := c.scanKeysOnNode(client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
+					scannedKeyCount = scannedKeyCount + count
+					return err
+				}
+			}
+			return err
+		})
+
+		if loopError != nil {
+			err = loopError
+		}
+	default:
+		err, scannedKeyCount = c.scanKeysOnNode(c.client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() {}, func() {})
+	}
+
+	if err != nil {
+		log.Printf("ERROR while scanning: %s\n", err.Error())
+	} else {
+		log.Printf("Number of scanned keys: %d\n", scannedKeyCount)
+		var orderedKeys []string
+		for e, _ := range entrypoints {
+			orderedKeys = append(orderedKeys, e)
+		}
+		sort.Strings(orderedKeys)
+		var valuesToSend []interface{}
+		var node *EntryPointNode
+		for _, e := range orderedKeys {
+			node = entrypoints[e]
+			node.Path = EntryPoint(e)
+			valuesToSend = append(valuesToSend, node)
+
+			// Push messages when valuesToSend is equal to the scan size.
+			if int64(len(valuesToSend)) == scanSize {
+				c.sendValuesToChannel(valuesToSend, entrypointsChannel)
+				valuesToSend = valuesToSend[:0]
+			}
+		}
+		// After the loop, there might be residual values.
+		c.sendValuesToChannel(valuesToSend, entrypointsChannel)
+	}
+
+	// End of the stream.
+	entrypointsChannel <- DataBatch{}
+	close(entrypointsChannel)
+}
+
+func (c *RedisClient) scanKeysOnNode(redisClient redis.Cmdable, scanFilter string, regexFilter *regexp2.Regexp, minTreeLevel uint, maxTreeLevel uint, entrypoints map[string]*EntryPointNode, acquireMutex func(), releaseMutex func()) (error, int) {
+	var (
+		cursor          uint64
+		keys            []string
+		tokens          []string
+		entrypoint      string
+		err             error
+		scannedKeyCount int
+	)
+
+	for err == nil {
+		keys, cursor, err = redisClient.Scan(cursor, scanFilter, scanSize).Result()
+		if err == nil {
+			scannedKeyCount = scannedKeyCount + len(keys)
 			for _, key := range keys {
+				if regexFilter != nil && !regexFilter.Match([]byte(key)) {
+					continue
+				}
 				tokens = strings.Split(key, ":")
 				if uint(len(tokens)) > minTreeLevel {
 					entrypoint = ""
 					// Complete path and save the number of children
+					acquireMutex()
 					for level := minTreeLevel; level <= maxTreeLevel && level < uint(len(tokens)); level++ {
-						if len(entrypoint) > 0 {
-							entrypoint += ":" + tokens[level]
-						} else {
+						if entrypoint == "" {
 							entrypoint = tokens[level]
+						} else {
+							entrypoint += ":" + tokens[level]
 						}
 						existingNode, exists := entrypoints[entrypoint]
+
 						if level < uint(len(tokens)-1) {
 							if exists {
 								existingNode.Length = existingNode.Length + 1
@@ -302,39 +377,17 @@ func (c *RedisClient) extractEntryPointsWithLevels(err error, filter string, min
 							}
 						}
 					}
+					releaseMutex()
 				}
 			}
 
 			// End of the scanning.
 			if cursor == 0 {
-				var orderedKeys []string
-				for e, _ := range entrypoints {
-					orderedKeys = append(orderedKeys, e)
-				}
-				sort.Strings(orderedKeys)
-				var valuesToSend []interface{}
-				var node *EntryPointNode
-				for _, e := range orderedKeys {
-					node = entrypoints[e]
-					node.Path = EntryPoint(e)
-					valuesToSend = append(valuesToSend, node)
-
-					// Push messages when valuesToSend is equal to the scan size.
-					if int64(len(valuesToSend)) == scanSize {
-						c.sendValuesToChannel(valuesToSend, entrypointsChannel)
-						valuesToSend = valuesToSend[:0]
-					}
-				}
-				// After the loop, there might be residual values.
-				c.sendValuesToChannel(valuesToSend, entrypointsChannel)
-
-				// End of the stream.
-				entrypointsChannel <- DataBatch{}
-				close(entrypointsChannel)
 				break
 			}
 		}
 	}
+	return err, scannedKeyCount
 }
 
 func (c *RedisClient) scan(filter string, dataChannel chan<- DataBatch, scanFn func(cursor uint64, match string, count int64) *redis.ScanCmd, formatFn func(values []string) interface{}) (ActionStatus, error) {
@@ -434,14 +487,40 @@ func (c *RedisClient) sendValuesToChannel(values interface{}, target chan<- Data
 
 func (c *RedisClient) GetEntryPointInfos(entryPointValue EntryPoint) (EntryPointInfos, error) {
 	key := string(entryPointValue)
-	statusCmd := c.client.Type(key)
+
+	var (
+		keyType string
+		err     error
+	)
+
+	switch client := c.client.(type) {
+	case *redis.ClusterClient:
+		client.ReloadState()
+		loopError := client.ForEachNode(func(client *redis.Client) error {
+			log.Printf("Client: %v\n", client)
+			tmpResult, err := client.Type(key).Result()
+			if err != nil {
+				log.Println("Error", key, tmpResult)
+				return err
+			}
+			log.Println("Type of %s is %s", key, tmpResult)
+			keyType = tmpResult
+			return nil
+		})
+
+		if loopError != nil {
+			err = loopError
+		}
+	default:
+		//keyType, err = c.client.Type(key).Result()
+	}
+	keyType, err = c.client.Type(key).Result()
 	var infos EntryPointInfos
-	err := statusCmd.Err()
 
 	if err == nil {
 		var result EntryPointType
 		length := uint64(0)
-		t := strings.ToLower(statusCmd.Val())
+		t := strings.ToLower(keyType)
 		switch t {
 		case "string":
 			result = Value

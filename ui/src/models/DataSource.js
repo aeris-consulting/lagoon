@@ -30,9 +30,37 @@ export default class DataSource {
         console.log(this);
     }
 
-    listEntrypoints(filter, minLevel, maxLevel, completeAction, onError) {
+    listEntrypoints(entrypointPrefix, minLevel, maxLevel, completeAction, onError) {
         let receivedValues = [];
-        let actualFilter = filter ? filter : this.filter ? '*' + this.filter + '*' : '*';
+        let actualFilter;
+        let overallFilter = ('*' + this.filter + '*').replace(/[*]+/g, '*');
+
+        if (!entrypointPrefix) {
+            actualFilter = ('*' + this.filter + '*').replace(/[*]+/g, '*');
+        } else {
+            let entrypointRegex = new RegExp(entrypointPrefix);
+            entrypointPrefix = entrypointPrefix + ':*';
+            let overallRegex = new RegExp(overallFilter
+                .replace(/^[*]+/g, '')
+                .replace(/[*]+$/g, '')
+                .replace(/[*]+/g, '.*')
+            );
+
+            if (overallRegex.test(entrypointPrefix)) {
+                actualFilter = entrypointPrefix;
+            } else if (entrypointRegex.test(overallFilter
+                .replace(/^[*]+/g, '')
+                .replace(/[*]+$/g, '')
+            )) {
+                actualFilter = overallFilter;
+            } else {
+                // TODO Complex case.
+                actualFilter = entrypointPrefix + ','
+                    + overallFilter
+                        .replace(/[*]+/g, '.*')
+                        .replace(/[*]+/g, '*');
+            }
+        }
 
         axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint?min='
             + minLevel + '&max=' + maxLevel + '&filter=' + actualFilter, {format: 'json'})
@@ -58,37 +86,65 @@ export default class DataSource {
                 }
             })
             .catch(e => {
-                this.errors.push(e);
+                this.addError(e);
                 if (onError) {
                     onError(e);
                 }
             });
     }
 
-    refreshNodeDetails(node) {
+    addError(e) {
+        if (e.response.data) {
+            this.errors = [e.response.data.error];
+        } else {
+            this.errors = [e];
+        }
+    }
+
+    refreshNodeDetails(node, callback) {
         let fullName = node.getFullName();
+        let self = this;
 
         axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/info', {format: 'json'})
             .then(response => {
                 if (response.status === 200) {
                     node.info = response.data;
-                    node.contentComponent.lastRefresh = new Date();
+
+                    axios.get(self.apiRoot + '/data/' + self.id + '/entrypoint/' + fullName + '/content', {format: 'json'})
+                        .then(response => {
+                            if (response.status === 200) {
+                                node.content = response.data;
+                                callback();
+                            } else if (response.status === 202) {
+                                let receivedValues = [];
+                                let socket = new WebSocket(this.wsRoot + response.data.link);
+                                socket.onopen = () => {
+                                    socket.onmessage = ({data}) => {
+                                        let jsonData = JSON.parse(data);
+                                        if (jsonData.size) {
+                                            receivedValues = receivedValues.concat(jsonData.data);
+                                        } else {
+                                            setTimeout(() => {
+                                                node.content = {
+                                                    length: receivedValues.length,
+                                                    data: receivedValues
+                                                };
+                                                callback();
+                                            }, 0);
+                                        }
+                                    };
+                                };
+                            }
+                        })
+                        .catch(e => {
+                            self.addError(e);
+                        });
                 }
             })
             .catch(e => {
-                this.errors.push(e)
+                this.addError(e);
             });
 
-        axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/content', {format: 'json'})
-            .then(response => {
-                if (response.status === 200) {
-                    node.content = response.data;
-                    node.contentComponent.lastRefresh = new Date();
-                }
-            })
-            .catch(e => {
-                this.errors.push(e)
-            });
     }
 
     deleteEntrypoint(node) {
@@ -102,7 +158,7 @@ export default class DataSource {
                 }
             })
             .catch(e => {
-                this.errors.push(e)
+                this.addError(e);
             });
     }
 
@@ -124,7 +180,7 @@ export default class DataSource {
                 }
             })
             .catch(e => {
-                this.errors.push(e)
+                this.addError(e);
             });
     }
 
@@ -133,7 +189,6 @@ export default class DataSource {
         setTimeout(() => {
             this.selectedNodes.push(node);
         }, 0);
-
     }
 
     // eslint-disable-next-line
