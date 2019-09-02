@@ -633,7 +633,7 @@ func (c *RedisClient) GetContent(entryPointValue EntryPoint, filter string, cont
 func (c *RedisClient) getValue(entryPointValue EntryPoint) (SingleValue, error) {
 	key := string(entryPointValue)
 	result := c.client.Get(key)
-	return result.String(), result.Err()
+	return result.Val(), result.Err()
 }
 
 func (c *RedisClient) getSetValues(entryPointValue EntryPoint, filter string, target chan<- DataBatch) (ActionStatus, error) {
