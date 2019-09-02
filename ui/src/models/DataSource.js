@@ -104,17 +104,17 @@ export default class DataSource {
     refreshNodeDetails(node, callback) {
         let fullName = node.getFullName();
         let self = this;
-
         axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/info', {format: 'json'})
             .then(response => {
                 if (response.status === 200) {
                     node.info = response.data;
-
                     axios.get(self.apiRoot + '/data/' + self.id + '/entrypoint/' + fullName + '/content', {format: 'json'})
                         .then(response => {
                             if (response.status === 200) {
                                 node.content = response.data;
-                                callback();
+                                if (callback) {
+                                    callback();
+                                }
                             } else if (response.status === 202) {
                                 let receivedValues = [];
                                 let socket = new WebSocket(this.wsRoot + response.data.link);
@@ -129,7 +129,9 @@ export default class DataSource {
                                                     length: receivedValues.length,
                                                     data: receivedValues
                                                 };
-                                                callback();
+                                                if (callback) {
+                                                    callback();
+                                                }
                                             }, 0);
                                         }
                                     };

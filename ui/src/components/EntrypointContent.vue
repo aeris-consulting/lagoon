@@ -25,66 +25,78 @@
             </v-col>
         </v-row>
 
-        <v-list>
-            <v-list-item v-if="lastRefresh !== null">
-                <v-list-item-icon>
-                    <v-icon>mdi-clock</v-icon>
-                    <v-list-item-content>
-                        <v-list-item-title>
-                            {{ lastRefresh.toISOString() }}
-                        </v-list-item-title>
-                    </v-list-item-content>
-                </v-list-item-icon>
-            </v-list-item>
+        <v-row>
+            <v-chip
+                class="mr-2">
+                <v-tooltip bottom>
+                    <template v-slot:activator="{ on }">
+                        <v-icon left v-on="on">mdi-clock</v-icon>
+                    </template>
+                    <span>Last refresh time</span>
+                </v-tooltip>
+                <template v-if="lastRefresh">
+                    {{ lastRefresh.toISOString() }}
+                </template>
+            </v-chip>
             <template v-if="node.info">
-                <v-subheader>INFORMATION</v-subheader>
-                <v-list-item>
-                    <v-list-item-content>
-                        <v-list-item-title>{{ node.info.type.toLowerCase() }}</v-list-item-title>
-                        <v-list-item-subtitle>type of node</v-list-item-subtitle>
-                    </v-list-item-content>
-                </v-list-item>
-                <v-list-item>
-                    <v-list-item-content>
-                        <v-list-item-title>{{ node.info.length }}</v-list-item-title>
-                        <v-list-item-subtitle>length of value</v-list-item-subtitle>
-                    </v-list-item-content>
-                </v-list-item>
+                <v-chip
+                    class="mr-2">
+                    <v-tooltip bottom>
+                        <template v-slot:activator="{ on }">
+                            <v-icon left v-on="on">mdi-shape</v-icon>
+                        </template>
+                        <span>Type of node</span>
+                    </v-tooltip>
+                    {{ node.info.type.toLowerCase() }}
+                </v-chip>
+                <v-chip
+                    class="mr-2">
+                    <v-tooltip bottom>
+                        <template v-slot:activator="{ on }">
+                            <v-icon left v-on="on">mdi-ruler</v-icon>
+                        </template>
+                        <span>length of value</span>
+                    </v-tooltip>
+                    {{ node.info.length }}
+                </v-chip>
             </template>
-        </v-list>
+        </v-row>
 
-        <div class="content" v-if="node.content && node.info">
-            <h3>Content</h3>
+        <div class="content mt-2" v-if="node.content && node.info">
+            <h4>Content</h4>
             <div v-if="node.info.type == 'HASH'">
-                <table>
+                <v-simple-table dense>
                     <thead>
-                    <tr class="content-header">
-                        <td>Field</td>
-                        <td>Value</td>
-                    </tr>
+                        <tr>
+                            <td>Field</td>
+                            <td>Value</td>
+                        </tr>
                     </thead>
                     <tbody>
-                    <tr class="content-data" v-for="(v,k) in node.content.data[0]" :key="k">
-                        <td>{{ k }}</td>
-                        <td>{{ v }}</td>
-                    </tr>
+                        <tr class="content-data" v-for="(v,k) in node.content.data[0]" :key="k">
+                            <td>{{ k }}</td>
+                            <td>{{ v }}</td>
+                        </tr>
                     </tbody>
-                </table>
+                </v-simple-table>
             </div>
 
             <div class="content-data" v-else>
-                <table>
-                    <tbody>
-                    <tr :key="i" v-for="(v, i) in node.content.data">
-                        <td>{{ v }}</td>
-                    </tr>
-                    </tbody>
-                </table>
+                <json-viewer
+                    :value="node.content.data | parseIfIsJson"
+                    copyable
+                    :expand-depth=3
+                    boxed
+                    sort>
+                </json-viewer>
             </div>
         </div>
     </v-container>
 </template>
 <script>
+    import EventBus from '../eventBus';
+    import JsonHelper from '../helpers/jsonHelper';
+
     export default {
         name: 'EntrypointContent',
 
@@ -120,14 +132,18 @@
             },
 
             scheduleNextRefresh: function () {
-                if (this.observing) {
-                    this.refresh();
-                    this.scheduleNextRefresh();
-                }
+                this.observationFlag = setTimeout(() => {
+                    if (this.observing) {
+                        this.refresh();
+                        this.scheduleNextRefresh();
+                    }
+                }, this.observationFrequency * 1000);
             },
 
             edit: function () {
-                alert('Not yet implemented');
+                EventBus.$emit('display-snakebar', {
+                    message: 'Not yet implemented'
+                });
             },
 
             erase: function () {
@@ -138,6 +154,17 @@
                     }, noHandler: () => {
                     }
                 });
+            }
+        },
+
+        filters: {
+            parseIfIsJson: function (value) {
+                if (value && value.length && value.length === 1) {
+                    if (JsonHelper.isJson(value[0])) {
+                        return JSON.parse(value);
+                    }
+                }
+                return value
             }
         },
 
