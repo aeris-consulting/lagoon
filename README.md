@@ -99,7 +99,7 @@ npm run lint
 See [Configuration Reference](https://cli.vuejs.org/config/).
 
 ## TODO
-1. Persist configuration or pass it as base64 YAML file (datasources, listening port)
+
 1. Manage read-only datasources
 1. Document the API
 1. Edit a content
