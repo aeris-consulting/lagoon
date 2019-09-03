@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,9 +10,12 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"github.com/twinj/uuid"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"lagoon/datasource"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -46,15 +50,61 @@ var rootCmd = &cobra.Command{
                 provided by Redis and others.
                 Complete documentation is available at https://github.com/ericjesse/lagoon`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var (
+			yamlConfig []byte
+			err        error
+		)
+
+		if *configurationFlags.base64 != "" {
+			yamlConfig, err = base64.StdEncoding.DecodeString(*(configurationFlags.base64))
+		} else if *configurationFlags.file != "" {
+			if _, err := os.Stat(*configurationFlags.file); err == nil {
+				yamlConfig, err = ioutil.ReadFile(*(configurationFlags.file))
+			}
+		}
+
+		if len(yamlConfig) > 0 {
+			err = yaml.Unmarshal(yamlConfig, &configuration)
+			if err != nil {
+				log.Fatalf("error: %v", err)
+			}
+
+			for _, ds := range configuration.Datasources {
+				dsUuid, _ := createDatasource(&ds)
+				dsInfos := dataSourceInfos{
+					Uuid:        dsUuid,
+					Vendor:      ds.Vendor,
+					Name:        ds.Name,
+					Description: ds.Description,
+				}
+				dataSources = append(dataSources, dsInfos)
+			}
+		}
+
 		r := setupRouter()
-		// Listen and Server in 0.0.0.0:4000
-		r.Run(":4000")
+		// Listen and Server in 0.0.0.0:port
+		if configuration.Port == 0 {
+			configuration.Port = 4000
+		}
+		r.Run(":" + strconv.Itoa(configuration.Port))
 	},
 }
 
+var (
+	configurationFlags struct {
+		base64 *string
+		file   *string
+	}
+
+	configuration struct {
+		Port        int                     `yaml:"port"`
+		Datasources []datasource.DataSource `yaml:"datasources"`
+	}
+)
+
 func init() {
-	// TODO
-	// rootCmd.PersistentFlags().IntVar()
+	configurationFlags.base64 = rootCmd.PersistentFlags().StringP("base64-configuration", "b", "", "Full YAML configuration as base64 string")
+	configurationFlags.file = rootCmd.PersistentFlags().StringP("configuration-file", "c", "lagoon.yml", "Path of the YAML configuration file")
 }
 
 func setupRouter() *gin.Engine {
@@ -157,7 +207,11 @@ func createDatasource(source *datasource.DataSource) (dataSourceUuid, error) {
 	if err == nil {
 		err = dataSource.Open()
 		if err == nil {
-			dSUuid = dataSourceUuid(uuid.NewV4().String())
+			if source.Uuid != "" {
+				dSUuid = dataSourceUuid(source.Uuid)
+			} else {
+				dSUuid = dataSourceUuid(uuid.NewV4().String())
+			}
 			clients[dSUuid] = dataSource
 		}
 	}

@@ -32,13 +32,14 @@ type DataBatch struct {
 }
 
 type DataSource struct {
-	Vendor        string            `json:"vendor" binding:"required"`
-	Name          string            `json:"name" binding:"required"`
-	Description   string            `json:"description"`
-	Bootstrap     string            `json:"bootstrap" binding:"required"`
-	User          string            `json:"user"`
-	Password      string            `json:"password"`
-	Configuration map[string]string `json:"configuration"`
+	Uuid          string            `json:"uuid" yaml:"uuid"`
+	Vendor        string            `json:"vendor" yaml:"vendor" binding:"required"`
+	Name          string            `json:"name" yaml:"name" binding:"required"`
+	Description   string            `json:"description"yaml:"description"`
+	Bootstrap     string            `json:"bootstrap" yaml:"bootstrap" binding:"required"`
+	User          string            `json:"user" yaml:"user"`
+	Password      string            `json:"password" yaml:"password"`
+	Configuration map[string]string `json:"configuration" yaml:"configuration`
 }
 
 type EntryPoint string
