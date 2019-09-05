@@ -115,7 +115,10 @@
 
         methods: {
             refresh: function () {
-                this.dataSource.refreshNodeDetails(this.node);
+                let self = this;
+                this.dataSource.refreshNodeDetails(this.node, function () {
+                    self.lastRefresh = new Date();
+                });
             },
 
             observe: function () {

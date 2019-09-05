@@ -9,9 +9,9 @@
             <!-- <v-btn icon @click="add()" x-small>
               <font-awesome-icon icon="plus"/>
             </v-btn> -->
-            <v-btn 
-                icon @click="refresh()" x-small 
-                v-if="node.hasChildren() && open">
+            <v-btn
+                    @click="refreshChildren()" icon x-small
+                    v-if="node.hasChildren() && open">
               <font-awesome-icon icon="sync"/>
             </v-btn>
             <v-btn icon @click="copyChildrenList()" x-small

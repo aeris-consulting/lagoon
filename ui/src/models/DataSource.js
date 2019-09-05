@@ -11,16 +11,16 @@ export default class DataSource {
         this.selectedNodes = [];
         this.readonly = false;
 
-        if (process.env.VUE_APP_API_SCHEME && process.env.VUE_APP_API_URL) {
+        if (process !== null && process.env !== null && process.env.VUE_APP_API_SCHEME && process.env.VUE_APP_API_URL) {
             this.apiRoot = process.env.VUE_APP_API_SCHEME + '://' + process.env.VUE_APP_API_URL;
-            if (process.env.VUE_APP_API_SCHEME == 'https') {
+            if (process.env.VUE_APP_API_SCHEME == 'https:') {
                 this.wsRoot = 'wss://' + process.env.VUE_APP_API_URL;
             } else {
                 this.wsRoot = 'ws://' + process.env.VUE_APP_API_URL;
             }
         } else {
             this.apiRoot = '..';
-            if (location.protocol == 'https') {
+            if (location.protocol == 'https:') {
                 this.wsRoot = 'wss://' + location.hostname + ':' + location.port;
             } else {
                 this.wsRoot = 'ws://' + location.hostname + ':' + location.port;
@@ -94,7 +94,7 @@ export default class DataSource {
     }
 
     addError(e) {
-        if (e.response && e.response.data && e.response.error) {
+        if (e.response && e.response.data && e.response.data.error) {
             this.errors = [e.response.data.error];
         } else {
             this.errors = [e];
