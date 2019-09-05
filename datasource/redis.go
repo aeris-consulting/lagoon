@@ -27,6 +27,10 @@ type RedisClient struct {
 	activeStreams bool
 }
 
+func (c *RedisClient) GetSupportedTypes() []EntryPointType {
+	return []EntryPointType{Value, Set, SortedSet, List, Hash, Stream}
+}
+
 func (c *RedisClient) Open() error {
 	err := c.createConnection()
 	if err == nil {
@@ -239,8 +243,6 @@ func (c *RedisClient) createRedisConnection(url string) error {
 }
 
 func (c *RedisClient) Close() {
-	// Close next
-
 	switch v := c.client.(type) {
 	case *redis.Client:
 		v.Close()
@@ -492,34 +494,17 @@ func (c *RedisClient) GetEntryPointInfos(entryPointValue EntryPoint) (EntryPoint
 		keyType string
 		err     error
 	)
-
-	switch client := c.client.(type) {
-	case *redis.ClusterClient:
-		client.ReloadState()
-		loopError := client.ForEachNode(func(client *redis.Client) error {
-			log.Printf("Client: %v\n", client)
-			tmpResult, err := client.Type(key).Result()
-			if err != nil {
-				log.Println("Error", key, tmpResult)
-				return err
-			}
-			log.Println("Type of %s is %s", key, tmpResult)
-			keyType = tmpResult
-			return nil
-		})
-
-		if loopError != nil {
-			err = loopError
-		}
-	default:
-		//keyType, err = c.client.Type(key).Result()
-	}
 	keyType, err = c.client.Type(key).Result()
 	var infos EntryPointInfos
 
 	if err == nil {
-		var result EntryPointType
-		length := uint64(0)
+		var (
+			result     EntryPointType
+			length     uint64
+			timeToLive time.Duration
+			ttlErr     error
+		)
+
 		t := strings.ToLower(keyType)
 		switch t {
 		case "string":
@@ -529,7 +514,7 @@ func (c *RedisClient) GetEntryPointInfos(entryPointValue EntryPoint) (EntryPoint
 			result = Set
 			length = uint64(c.client.SCard(key).Val())
 		case "zset":
-			result = Set
+			result = SortedSet
 			length = uint64(c.client.ZCard(key).Val())
 		case "list":
 			result = List
@@ -548,6 +533,12 @@ func (c *RedisClient) GetEntryPointInfos(entryPointValue EntryPoint) (EntryPoint
 		infos = EntryPointInfos{
 			Type:   result,
 			Length: length,
+		}
+		timeToLive, ttlErr = c.client.PTTL(key).Result()
+		if ttlErr != nil {
+			infos.TimeToLive = int64(timeToLive / time.Second)
+		} else {
+			infos.TimeToLive = -1
 		}
 	}
 
@@ -573,17 +564,19 @@ func (c *RedisClient) DeleteEntrypointChidren(entryPointValue EntryPoint, errorC
 		var keys []string
 		var err error
 
-		for {
-			keys, cursor, err = c.client.Scan(cursor, string(entryPointValue)+":*", scanSize).Result()
-			if err != nil {
-				children = append(children, keys...)
-				if cursor == 0 {
-					break
+		go func() {
+			for {
+				keys, cursor, err = c.client.Scan(cursor, string(entryPointValue)+":*", scanSize).Result()
+				if err != nil {
+					children = append(children, keys...)
+					if cursor == 0 {
+						break
+					}
 				}
 			}
-		}
-		c.client.Unlink(children...)
-		close(errorChannel)
+			c.client.Unlink(children...)
+			close(errorChannel)
+		}()
 	}
 	return Moved, err
 }
@@ -628,6 +621,68 @@ func (c *RedisClient) GetContent(entryPointValue EntryPoint, filter string, cont
 	}
 
 	return actionStatus, err
+}
+
+func (c *RedisClient) SetContent(entryPoint EntryPoint, content EntryPointContent) error {
+	var (
+		entrypointType EntryPointType
+		err            error
+	)
+	for k, v := range EntryPointTypesAsString {
+		if content.Type == v {
+			entrypointType = k
+			break
+		}
+	}
+
+	key := string(entryPoint)
+
+	switch entrypointType {
+	case Value:
+		c.client.Set(key, content.Value, time.Second*time.Duration(content.TimeToLive))
+	case Set:
+		var (
+			valuesToRemove []interface{}
+			valuesToAdd    []interface{}
+		)
+		for k, v := range content.Values {
+			if k < 0 {
+				valuesToRemove = append(valuesToRemove, v)
+			} else {
+				valuesToAdd = append(valuesToAdd, v)
+			}
+		}
+		c.client.SRem(key, valuesToRemove...)
+		c.client.SAdd(key, valuesToAdd...)
+	case SortedSet:
+		var (
+			valuesToRemove []interface{}
+			valuesToAdd    []*redis.Z
+		)
+		for k, v := range content.Values {
+			if k < 0 {
+				valuesToRemove = append(valuesToRemove, v)
+			} else {
+				valuesToAdd = append(valuesToAdd, &redis.Z{
+					Score:  k,
+					Member: v,
+				})
+			}
+		}
+		c.client.ZRem(key, valuesToRemove...)
+		c.client.ZAddCh(key, valuesToAdd...)
+	case List:
+		// TODO
+	case Hash:
+		c.client.Del(key)
+		c.client.HMSet(key, content.Hash)
+	case Stream:
+		// TODO
+	default:
+		err = errors.New(fmt.Sprintf("Type %s is unsupported", entrypointType))
+	}
+
+	return err
 }
 
 func (c *RedisClient) getValue(entryPointValue EntryPoint) (SingleValue, error) {

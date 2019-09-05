@@ -9,21 +9,23 @@ const (
 	Completed ActionStatus = 1
 	Moved     ActionStatus = 2
 
-	Value  EntryPointType = 1
-	Set    EntryPointType = 2
-	List   EntryPointType = 3
-	Hash   EntryPointType = 4
-	Stream EntryPointType = 5
+	Value     EntryPointType = 1
+	Set       EntryPointType = 2
+	SortedSet EntryPointType = 3
+	List      EntryPointType = 4
+	Hash      EntryPointType = 5
+	Stream    EntryPointType = 6
 
 	SwitchToWsBarrier uint8 = 20
 )
 
 var EntryPointTypesAsString = map[EntryPointType]string{
-	Value:  "VALUE",
-	Set:    "SET",
-	List:   "LIST",
-	Hash:   "HASH",
-	Stream: "STREAM",
+	Value:     "VALUE",
+	Set:       "SET",
+	SortedSet: "SORTED_SET",
+	List:      "LIST",
+	Hash:      "HASH",
+	Stream:    "STREAM",
 }
 
 type DataBatch struct {
@@ -51,17 +53,23 @@ type EntryPointNode struct {
 }
 
 type EntryPointInfos struct {
-	Type   EntryPointType `json:"type" binding:"required"`
-	Length uint64         `json:"length" binding:"required"`
+	Type       EntryPointType `json:"type" binding:"required"`
+	Length     uint64         `json:"length" binding:"required"`
+	TimeToLive int64          `json:"timeToLive"` // Time to live of the entry, in seconds.
 }
 
+type EntryPointContent struct {
+	Type       string                  `json:"type"`
+	TimeToLive int64                   `json:"timeToLive"`
+	Value      interface{}             `json:"value"`
+	Hash       map[string]interface{}  `json:"hash"`
+	Values     map[float64]interface{} `json:"values"`
+}
 type SingleValue interface{}
 
-type StreamInfos struct {
-}
+type StreamInfos struct{}
 
-type Filter struct {
-}
+type Filter struct{}
 
 // Datasource provides a common interface for all kind of supported Lagoon datasource.
 // It might be that some implementations of Datasource do not support all the functions.
@@ -79,13 +87,21 @@ type Datasource interface {
 	// GetEntryPointInfos returns the available details of the entrypoint: type, size...
 	GetEntryPointInfos(entryPointValue EntryPoint) (EntryPointInfos, error)
 
-	// GetValue returns the unique value when entryPointValue is attached to only one value, like string values in Redis.
+	// GetContent returns the unique value when entryPointValue is attached to only one value, like string values in Redis.
 	GetContent(entryPointValue EntryPoint, filter string, content chan<- DataBatch) (ActionStatus, error)
 
+	// SetContent adds or updates the content of an entrypoint.
+	SetContent(entryPointValue EntryPoint, content EntryPointContent) error
+
+	// DeleteEntrypoint deletes a unique entrypoint content, preserving its children.
 	DeleteEntrypoint(entryPointValue EntryPoint) error
 
+	// DeleteEntrypointChidren deletes the content of the entrypoint and all its children.
 	DeleteEntrypointChidren(entryPointValue EntryPoint, errorChannel chan<- error) (ActionStatus, error)
 
-	// OpenStream consumes a stream or topic and add the accepted values to the channel.
+	// Consume reads a stream or topic and continually add the accepted values to the channel.
 	Consume(entryPointValue EntryPoint, values chan<- DataBatch, filter Filter, fromBeginning bool) (ActionStatus, error)
+
+	// GetSupportedTypes provides the types of entry points that this kind of Datasource can support for creation and display.
+	GetSupportedTypes() []EntryPointType
 }

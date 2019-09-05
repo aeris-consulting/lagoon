@@ -25,10 +25,11 @@ const MaxLevel = ^uint(0)
 type dataSourceUuid string
 
 type dataSourceInfos struct {
-	Uuid        dataSourceUuid `json:"uuid" binding:"required"`
-	Vendor      string         `json:"vendor" binding:"required"`
-	Name        string         `json:"name" binding:"required"`
-	Description string         `json:"description"`
+	Uuid           dataSourceUuid `json:"uuid" binding:"required"`
+	Vendor         string         `json:"vendor" binding:"required"`
+	Name           string         `json:"name" binding:"required"`
+	Description    string         `json:"description"`
+	SupportedTypes []string       `json:"supportedTypes" binding:"required"`
 }
 
 var clients = make(map[dataSourceUuid]datasource.Datasource)
@@ -69,16 +70,11 @@ var rootCmd = &cobra.Command{
 				log.Fatalf("error: %v", err)
 			}
 
-			for _, ds := range configuration.Datasources {
-				dsUuid, _ := createDatasource(&ds)
-				dsInfos := dataSourceInfos{
-					Uuid:        dsUuid,
-					Vendor:      ds.Vendor,
-					Name:        ds.Name,
-					Description: ds.Description,
+			go func() {
+				for _, ds := range configuration.Datasources {
+					createDatasource(&ds)
 				}
-				dataSources = append(dataSources, dsInfos)
-			}
+			}()
 		}
 
 		r := setupRouter()
@@ -138,6 +134,10 @@ func setupRouter() *gin.Engine {
 		getEntryPointContent(c)
 	})
 
+	r.PUT("/data/:dataSourceUuid/entrypoint/:entrypoint/content", func(c *gin.Context) {
+		setEntryPointContent(c)
+	})
+
 	r.DELETE("/data/:dataSourceUuid/entrypoint/:entrypoint", func(c *gin.Context) {
 		deleteEntryPoint(c)
 	})
@@ -170,23 +170,18 @@ func setupRouter() *gin.Engine {
 
 func createNewDataSource(c *gin.Context) {
 	var dataSource datasource.DataSource
-	if c.Bind(&dataSource) == nil {
+	if err := c.Bind(&dataSource); err == nil {
 		log.Printf("Creating data source %v\n", dataSource)
 		dataSourceUuid, err := createDatasource(&dataSource)
 
 		if err == nil {
-			dsInfos := dataSourceInfos{
-				Uuid:        dataSourceUuid,
-				Vendor:      dataSource.Vendor,
-				Name:        dataSource.Name,
-				Description: dataSource.Description,
-			}
-			dataSources = append(dataSources, dsInfos)
 			log.Printf("Current data sources: %v \n", dataSources)
 			c.JSON(http.StatusOK, gin.H{"dataSourceUuid": dataSourceUuid})
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
+	} else {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 }
 
@@ -213,6 +208,19 @@ func createDatasource(source *datasource.DataSource) (dataSourceUuid, error) {
 				dSUuid = dataSourceUuid(uuid.NewV4().String())
 			}
 			clients[dSUuid] = dataSource
+
+			supportedTypes := []string{}
+			for _, supportedType := range dataSource.GetSupportedTypes() {
+				supportedTypes = append(supportedTypes, datasource.EntryPointTypesAsString[supportedType])
+			}
+			dsInfos := dataSourceInfos{
+				Uuid:           dSUuid,
+				Vendor:         source.Vendor,
+				Name:           source.Name,
+				Description:    source.Description,
+				SupportedTypes: supportedTypes,
+			}
+			dataSources = append(dataSources, dsInfos)
 		}
 	}
 
@@ -288,7 +296,13 @@ func getEntryPointInfos(c *gin.Context) {
 		entrypoint := datasource.EntryPoint(c.Params.ByName("entrypoint"))
 		infos, err := cli.GetEntryPointInfos(entrypoint)
 		if err == nil {
-			c.JSON(http.StatusOK, gin.H{"type": datasource.EntryPointTypesAsString[infos.Type], "length": infos.Length})
+			values := gin.H{"type": datasource.EntryPointTypesAsString[infos.Type], "length": infos.Length}
+			if infos.TimeToLive >= 0 {
+				values["timeToLive"] = infos.TimeToLive
+			} else {
+				values["timeToLive"] = nil
+			}
+			c.JSON(http.StatusOK, values)
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
@@ -314,6 +328,27 @@ func getEntryPointContent(c *gin.Context) {
 			close(dataChannel)
 			c.JSON(http.StatusOK, gin.H{"size": dataBatch.Size, "data": dataBatch.Data})
 		}
+	}
+}
+
+func setEntryPointContent(c *gin.Context) {
+	cli, ok := findDatasource(c)
+	if ok {
+		entrypoint := datasource.EntryPoint(c.Params.ByName("entrypoint"))
+		var content datasource.EntryPointContent
+		if err := c.Bind(&content); err == nil {
+			log.Printf("Creating value %s %v\n", entrypoint, content)
+			err := cli.SetContent(entrypoint, content)
+			if err == nil {
+				log.Printf("Value created")
+				c.JSON(http.StatusOK, nil)
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+
 	}
 }
 
