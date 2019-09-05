@@ -11,7 +11,7 @@ export default class DataSource {
         this.selectedNodes = [];
         this.readonly = false;
 
-        if (process.env.VUE_APP_API_SCHEME && process.env.VUE_APP_API_URL) {
+        if (process && process.env && process.env.VUE_APP_API_SCHEME && process.env.VUE_APP_API_URL) {
             this.apiRoot = process.env.VUE_APP_API_SCHEME + '://' + process.env.VUE_APP_API_URL;
             if (process.env.VUE_APP_API_SCHEME == 'https') {
                 this.wsRoot = 'wss://' + process.env.VUE_APP_API_URL;
