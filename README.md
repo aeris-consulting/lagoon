@@ -31,6 +31,35 @@ cd ui && npm run serve
 go build main.go
 ```
 
+Optionally, you can pass configuration in different way. Using a base64 string or a path to a configuration file.
+
+For base64 configuration, pass it like:
+```
+go build main.go -b=cG9ydDogMjAwMAoKZGF0YXNvdXJjZXM6Ci0gdXVpZDogYjk3MzYyMjQtMWFiMy00OWQ4LWE1OWQtZWYyNWFlNzA5NDg3CiAgdmVuZG9yOiByZWRpcwogIG5hbWU6IFJlZGlzIC0gQ2x1c3RlcgogIGJvb3RzdHJhcDogY2x1c3RlcjovLzEyNy4wLjAuMToxMzAwMSwxMjcuMC4wLjE6MTMwMDIsMTI3LjAuMC4xOjEzMDAzLDEyNy4wLjAuMToxMzAwNCwxMjcuMC4wLjE6MTMwMDUsMTI3LjAuMC4xOjEzMDA2CiAgY29uZmlndXJhdGlvbjoKICAgIHJlYWRUaW1lb3V0OiAzMAogICAgd3JpdGVUaW1lb3V0OiAzMAogICAgbWF4Q29ubkFnZTogMzAKICAgIG1pbklkbGVDb25uczogMTAKLSB1dWlkOiA2YTRhYmRkOS0zNWJlLTRkNGEtYWU0Ni0xZjFjNzBhN2FkMjYKICB2ZW5kb3I6IHJlZGlzCiAgbmFtZTogUmVkaXMgLSBTaW5nbGUKICBib290c3RyYXA6IHJlZGlzOi8vbG9jYWxob3N0OjYzNzkKICAgIAogICAg
+```
+
+This is equivalent to the following configuration:
+```yaml
+port: 2000
+
+datasources:
+- uuid: b9736224-1ab3-49d8-a59d-ef25ae709487
+  vendor: redis
+  name: Redis - Cluster
+  bootstrap: cluster://127.0.0.1:13001,127.0.0.1:13002,127.0.0.1:13003,127.0.0.1:13004,127.0.0.1:13005,127.0.0.1:13006
+  configuration:
+    readTimeout: 30
+    writeTimeout: 30
+    maxConnAge: 30
+    minIdleConns: 10
+- uuid: 6a4abdd9-35be-4d4a-ae46-1f1c70a7ad26
+  vendor: redis
+  name: Redis - Single
+  bootstrap: redis://localhost:6379
+```
+
+Otherwise the configuration will be loaded from the file set with parameter `-c` (default `lagoon.yml`) if it exists.
+
 ### Declare the local database
 ```
 curl -X PUT \
@@ -70,7 +99,7 @@ npm run lint
 See [Configuration Reference](https://cli.vuejs.org/config/).
 
 ## TODO
-1. Persist configuration or pass it as base64 YAML file (datasources, listening port)
+
 1. Manage read-only datasources
 1. Document the API
 1. Edit a content

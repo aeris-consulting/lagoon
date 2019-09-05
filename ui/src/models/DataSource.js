@@ -94,7 +94,7 @@ export default class DataSource {
     }
 
     addError(e) {
-        if (e.response.data) {
+        if (e.response && e.response.data && e.response.error) {
             this.errors = [e.response.data.error];
         } else {
             this.errors = [e];
