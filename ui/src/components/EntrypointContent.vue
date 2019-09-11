@@ -36,40 +36,57 @@
         </template>
         <template v-else>
             <v-row>
-                <v-chip
-                    class="mr-2">
-                    <v-tooltip bottom>
-                        <template v-slot:activator="{ on }">
-                            <v-icon left v-on="on">mdi-clock</v-icon>
-                        </template>
-                        <span>Last refresh time</span>
-                    </v-tooltip>
-                    <template v-if="lastRefresh">
-                        {{ lastRefresh.toISOString() }}
-                    </template>
-                </v-chip>
-                <template v-if="node.info">
+                <v-col cols="12">
                     <v-chip
+                        @click="copyKey"
                         class="mr-2">
                         <v-tooltip bottom>
                             <template v-slot:activator="{ on }">
-                                <v-icon left v-on="on">mdi-shape</v-icon>
+                                <v-icon left v-on="on">mdi-key</v-icon>
                             </template>
                             <span>Type of node</span>
                         </v-tooltip>
-                        {{ node.info.type.toLowerCase() }}
+                        {{ node.getFullName() }}
                     </v-chip>
+                </v-col>
+            </v-row>
+            <v-row>
+                <v-col cols="12">
                     <v-chip
                         class="mr-2">
                         <v-tooltip bottom>
                             <template v-slot:activator="{ on }">
-                                <v-icon left v-on="on">mdi-ruler</v-icon>
+                                <v-icon left v-on="on">mdi-clock</v-icon>
                             </template>
-                            <span>length of value</span>
+                            <span>Last refresh time</span>
                         </v-tooltip>
-                        {{ node.info.length }}
+                        <template v-if="lastRefresh">
+                            {{ lastRefresh.toISOString() }}
+                        </template>
                     </v-chip>
-                </template>
+                    <template v-if="node.info">
+                        <v-chip
+                            class="mr-2">
+                            <v-tooltip bottom>
+                                <template v-slot:activator="{ on }">
+                                    <v-icon left v-on="on">mdi-shape</v-icon>
+                                </template>
+                                <span>Type of node</span>
+                            </v-tooltip>
+                            {{ node.info.type.toLowerCase() }}
+                        </v-chip>
+                        <v-chip
+                            class="mr-2">
+                            <v-tooltip bottom>
+                                <template v-slot:activator="{ on }">
+                                    <v-icon left v-on="on">mdi-ruler</v-icon>
+                                </template>
+                                <span>length of value</span>
+                            </v-tooltip>
+                            {{ node.info.length }}
+                        </v-chip>
+                    </template>
+                </v-col>
             </v-row>
 
             <div class="content mt-2" v-if="node.content && node.info">
@@ -172,6 +189,18 @@
                     }, noHandler: () => {
                     }
                 });
+            },
+
+            copyKey: function() {
+                 this.$copyText(this.node.getFullName()).then(function () {
+                    EventBus.$emit('display-snakebar', {
+                        message: 'The key was copied to your clipboard'
+                    });
+                }, function () {
+                    EventBus.$emit('display-snakebar', {
+                        message: 'The key could not be copied to your clipboard'
+                    });
+                })
             }
         },
 
