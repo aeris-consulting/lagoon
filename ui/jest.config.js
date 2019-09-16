@@ -1,4 +1,7 @@
 module.exports = {
+  setupFiles: [
+    '<rootDir>/tests/unit/setup.js'
+  ],
   moduleFileExtensions: [
     'js',
     'jsx',
