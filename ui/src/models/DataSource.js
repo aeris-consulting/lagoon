@@ -13,14 +13,14 @@ export default class DataSource {
 
         if (process && process.env && process.env.VUE_APP_API_SCHEME && process.env.VUE_APP_API_URL) {
             this.apiRoot = process.env.VUE_APP_API_SCHEME + '://' + process.env.VUE_APP_API_URL;
-            if (process.env.VUE_APP_API_SCHEME == 'https') {
+            if (process.env.VUE_APP_API_SCHEME == 'https:') {
                 this.wsRoot = 'wss://' + process.env.VUE_APP_API_URL;
             } else {
                 this.wsRoot = 'ws://' + process.env.VUE_APP_API_URL;
             }
         } else {
             this.apiRoot = '..';
-            if (location.protocol == 'https') {
+            if (location.protocol == 'https:') {
                 this.wsRoot = 'wss://' + location.hostname + ':' + location.port;
             } else {
                 this.wsRoot = 'ws://' + location.hostname + ':' + location.port;
@@ -94,59 +94,58 @@ export default class DataSource {
     }
 
     addError(e) {
-        if (e.response && e.response.data && e.response.error) {
+        if (e.response && e.response.data && e.response.data.error) {
             this.errors = [e.response.data.error];
         } else {
             this.errors = [e];
         }
     }
 
-    refreshNodeDetails(node, callback) {
-        let fullName = node.getFullName();
-        let self = this;
-        axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/info', {format: 'json'})
-            .then(response => {
-                if (response.status === 200) {
-                    node.info = response.data;
-                    axios.get(self.apiRoot + '/data/' + self.id + '/entrypoint/' + fullName + '/content', {format: 'json'})
-                        .then(response => {
-                            if (response.status === 200) {
-                                node.content = response.data;
-                                if (callback) {
-                                    callback();
-                                }
-                            } else if (response.status === 202) {
-                                let receivedValues = [];
-                                let socket = new WebSocket(this.wsRoot + response.data.link);
-                                socket.onopen = () => {
-                                    socket.onmessage = ({data}) => {
-                                        let jsonData = JSON.parse(data);
-                                        if (jsonData.size) {
-                                            receivedValues = receivedValues.concat(jsonData.data);
-                                        } else {
-                                            setTimeout(() => {
-                                                node.content = {
-                                                    length: receivedValues.length,
-                                                    data: receivedValues
-                                                };
-                                                if (callback) {
-                                                    callback();
-                                                }
-                                            }, 0);
-                                        }
+    refreshNodeDetails(node) {
+        return new Promise((resolve, reject) => {
+            let fullName = node.getFullName();
+            let self = this;
+            axios.get(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/info', {format: 'json'})
+                .then(response => {
+                    if (response.status === 200) {
+                        node.info = response.data;
+                        axios.get(self.apiRoot + '/data/' + self.id + '/entrypoint/' + fullName + '/content', {format: 'json'})
+                            .then(response => {
+                                if (response.status === 200) {
+                                    node.content = response.data;
+                                    resolve();
+                                } else if (response.status === 202) {
+                                    let receivedValues = [];
+                                    let socket = new WebSocket(this.wsRoot + response.data.link);
+                                    socket.onopen = () => {
+                                        socket.onmessage = ({data}) => {
+                                            let jsonData = JSON.parse(data);
+                                            if (jsonData.size) {
+                                                receivedValues = receivedValues.concat(jsonData.data);
+                                            } else {
+                                                setTimeout(() => {
+                                                    node.content = {
+                                                        length: receivedValues.length,
+                                                        data: receivedValues
+                                                    };
+                                                    resolve();
+                                                }, 0);
+                                            }
+                                        };
                                     };
-                                };
-                            }
-                        })
-                        .catch(e => {
-                            self.addError(e);
-                        });
-                }
-            })
-            .catch(e => {
-                this.addError(e);
-            });
-
+                                }
+                            })
+                            .catch(e => {
+                                self.addError(e);
+                                reject();
+                            });
+                    }
+                })
+                .catch(e => {
+                    this.addError(e);
+                    reject();
+                });
+        });
     }
 
     deleteEntrypoint(node) {

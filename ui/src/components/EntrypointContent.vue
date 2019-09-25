@@ -25,72 +25,101 @@
             </v-col>
         </v-row>
 
-        <v-row>
-            <v-chip
-                class="mr-2">
-                <v-tooltip bottom>
-                    <template v-slot:activator="{ on }">
-                        <v-icon left v-on="on">mdi-clock</v-icon>
+        <template v-if="isLoadingContent">
+            <v-row>
+                <v-progress-circular
+                    class="ml-2"
+                    indeterminate
+                    color="primary"
+                ></v-progress-circular>
+            </v-row>
+        </template>
+        <template v-else>
+            <v-row>
+                <v-col cols="12">
+                    <v-chip
+                        @click="copyKey"
+                        class="mr-2">
+                        <v-tooltip bottom>
+                            <template v-slot:activator="{ on }">
+                                <v-icon left v-on="on">mdi-key</v-icon>
+                            </template>
+                            <span>Type of node</span>
+                        </v-tooltip>
+                        {{ node.getFullName() }}
+                    </v-chip>
+                </v-col>
+            </v-row>
+            <v-row>
+                <v-col cols="12">
+                    <v-chip
+                        class="mr-2">
+                        <v-tooltip bottom>
+                            <template v-slot:activator="{ on }">
+                                <v-icon left v-on="on">mdi-clock</v-icon>
+                            </template>
+                            <span>Last refresh time</span>
+                        </v-tooltip>
+                        <template v-if="lastRefresh">
+                            {{ lastRefresh.toISOString() }}
+                        </template>
+                    </v-chip>
+                    <template v-if="node.info">
+                        <v-chip
+                            class="mr-2">
+                            <v-tooltip bottom>
+                                <template v-slot:activator="{ on }">
+                                    <v-icon left v-on="on">mdi-shape</v-icon>
+                                </template>
+                                <span>Type of node</span>
+                            </v-tooltip>
+                            {{ node.info.type.toLowerCase() }}
+                        </v-chip>
+                        <v-chip
+                            class="mr-2">
+                            <v-tooltip bottom>
+                                <template v-slot:activator="{ on }">
+                                    <v-icon left v-on="on">mdi-ruler</v-icon>
+                                </template>
+                                <span>length of value</span>
+                            </v-tooltip>
+                            {{ node.info.length }}
+                        </v-chip>
                     </template>
-                    <span>Last refresh time</span>
-                </v-tooltip>
-                <template v-if="lastRefresh">
-                    {{ lastRefresh.toISOString() }}
-                </template>
-            </v-chip>
-            <template v-if="node.info">
-                <v-chip
-                    class="mr-2">
-                    <v-tooltip bottom>
-                        <template v-slot:activator="{ on }">
-                            <v-icon left v-on="on">mdi-shape</v-icon>
-                        </template>
-                        <span>Type of node</span>
-                    </v-tooltip>
-                    {{ node.info.type.toLowerCase() }}
-                </v-chip>
-                <v-chip
-                    class="mr-2">
-                    <v-tooltip bottom>
-                        <template v-slot:activator="{ on }">
-                            <v-icon left v-on="on">mdi-ruler</v-icon>
-                        </template>
-                        <span>length of value</span>
-                    </v-tooltip>
-                    {{ node.info.length }}
-                </v-chip>
-            </template>
-        </v-row>
+                </v-col>
+            </v-row>
 
         <div class="content mt-2" v-if="node.content && node.info">
             <h4>Content</h4>
             <div v-if="node.info.type == 'HASH'">
                 <v-simple-table dense>
                     <thead>
-                        <tr>
-                            <td>Field</td>
-                            <td>Value</td>
-                        </tr>
+                            <tr>
+                                <td>Field</td>
+                                <td>Value</td>
+                            </tr>
                     </thead>
                     <tbody>
-                        <tr class="content-data" v-for="(v,k) in node.content.data[0]" :key="k">
-                            <td>{{ k }}</td>
-                            <td>{{ v }}</td>
-                        </tr>
+                            <tr class="content-data" v-for="(v,k) in node.content.data[0]" :key="k">
+                                <td>{{ k }}</td>
+                                <td>{{ v }}</td>
+                            </tr>
                     </tbody>
                 </v-simple-table>
             </div>
 
-            <div class="content-data" v-else>
-                <json-viewer
-                    :value="node.content.data | parseIfIsJson"
-                    copyable
-                    :expand-depth=3
-                    boxed
-                    sort>
-                </json-viewer>
+                <div class="content-data" v-else>
+                    <json-viewer
+                        :value="node.content.data | parseIfIsJson"
+                        copyable
+                        :expand-depth=3
+                        boxed
+                        sort>
+                    </json-viewer>
+                </div>
             </div>
-        </div>
+
+        </template>
     </v-container>
 </template>
 <script>
@@ -110,12 +139,18 @@
                 observing: false,
                 observationFrequency: 10,
                 lastRefresh: null,
+                isLoadingContent: false,
             }
         },
 
         methods: {
             refresh: function () {
-                this.dataSource.refreshNodeDetails(this.node);
+                let self = this;
+                this.isLoadingContent = true;
+                this.dataSource.refreshNodeDetails(this.node).then(() => {
+                    this.isLoadingContent = false;
+                    self.lastRefresh = new Date();
+                });
             },
 
             observe: function () {
@@ -154,6 +189,29 @@
                     }, noHandler: () => {
                     }
                 });
+            },
+
+            copyKey: function() {
+                 this.$copyText(this.node.getFullName()).then(function () {
+                    EventBus.$emit('display-snakebar', {
+                        message: 'The key was copied to your clipboard'
+                    });
+                }, function () {
+                    EventBus.$emit('display-snakebar', {
+                        message: 'The key could not be copied to your clipboard'
+                    });
+                })
+            }
+        },
+
+        filters: {
+            parseIfIsJson: function (value) {
+                if (value && value.length && value.length === 1) {
+                    if (JsonHelper.isJson(value[0])) {
+                        return JSON.parse(value);
+                    }
+                }
+                return value
             }
         },
 
@@ -171,10 +229,12 @@
         created() {
             let node = this.node;
             let self = this;
-            this.dataSource.refreshNodeDetails(node, function () {
+            this.isLoadingContent = true;
+            this.dataSource.refreshNodeDetails(node).then(() => {
+                this.isLoadingContent = false;
                 node.contentComponent = self;
                 node.contentComponent.lastRefresh = new Date()
-            });
+            })
         },
 
         beforeDestroy() {

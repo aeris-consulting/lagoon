@@ -29,10 +29,12 @@
                         dark>
                         <template v-for="n in selectedDatasource.selectedNodes">
                             <v-tab :key="n.getFullName()">
-                                {{ n.getFullName() }}
+                                <span class="tab-title" :title="n.getFullName()">
+                                    {{ n.getFullName() }}
+                                </span>
                             </v-tab>
                             <v-tab-item :key="n.getFullName() + '-tab-item'">
-                                <entrypoint-content 
+                                <entrypoint-content
                                                     @display-modal="showConfirmation"
                                                     v-bind:dataSource="selectedDatasource" v-bind:node="n"
                                                     ></entrypoint-content>
@@ -107,6 +109,11 @@
 
     .splitpanes {
         min-height: 40vh;
+    }
+
+    .tab-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
 </style>

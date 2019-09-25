@@ -6,22 +6,22 @@
         <span @click="display()" class="name" v-bind:class="{ 'content': node.hasContent}">{{ node.name }}</span>
         <span class="childrenLength"
               v-if="node.hasChildren()">({{ node.length ? node.length : node.children.length }})
-            <v-btn icon @click="add()" x-small>
+            <!-- <v-btn icon @click="add()" x-small>
               <font-awesome-icon icon="plus"/>
-            </v-btn>
-            <v-btn 
-                icon @click="refresh()" x-small 
-                v-if="node.hasChildren() && open">
+            </v-btn> -->
+            <v-btn
+                    @click="refreshChildren()" icon x-small
+                    v-if="node.hasChildren() && open">
               <font-awesome-icon icon="sync"/>
             </v-btn>
             <v-btn icon @click="copyChildrenList()" x-small
                 v-if="node.hasChildren() && open">
               <font-awesome-icon icon="copy"/>
             </v-btn>
-            <v-btn icon @click="deleteChildren()" x-small
+            <!-- <v-btn icon @click="deleteChildren()" x-small
                 v-if="!dataSource.readonly">
               <font-awesome-icon icon="trash"/>
-            </v-btn>
+            </v-btn> -->
         </span>
         <span>
             <v-progress-circular
@@ -139,7 +139,7 @@
             refresh: function () {
                 this.loading = true;
                 let self = this;
-                    
+
                 if (this.node.children !== null) {
                     this.node.children.clear();
                 }
