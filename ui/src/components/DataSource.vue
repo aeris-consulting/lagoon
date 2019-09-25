@@ -111,9 +111,8 @@
         min-height: 40vh;
     }
 
-    .tab-title {
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .v-tab {
+        max-width: 100%;
     }
 
 </style>

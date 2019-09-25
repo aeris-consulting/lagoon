@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+var _ = require('lodash');
+
 export default class DataSource {
 
     constructor(id, filter) {
@@ -11,7 +13,7 @@ export default class DataSource {
         this.selectedNodes = [];
         this.readonly = false;
 
-        if (process && process.env && process.env.VUE_APP_API_SCHEME && process.env.VUE_APP_API_URL) {
+        if (!_.isNil(process) && !_.isNil(process.env) && !_.isNil(process.env.VUE_APP_API_SCHEME) && !_.isNil(process.env.VUE_APP_API_URL)) {
             this.apiRoot = process.env.VUE_APP_API_SCHEME + '://' + process.env.VUE_APP_API_URL;
             if (process.env.VUE_APP_API_SCHEME == 'https:') {
                 this.wsRoot = 'wss://' + process.env.VUE_APP_API_URL;
@@ -54,9 +56,8 @@ export default class DataSource {
             )) {
                 actualFilter = overallFilter;
             } else {
-                // TODO Complex case.
-                actualFilter = entrypointPrefix + ','
-                    + overallFilter
+                actualFilter = overallFilter + ','
+                    + entrypointPrefix
                         .replace(/[*]+/g, '.*')
                         .replace(/[*]+/g, '*');
             }

@@ -19,6 +19,7 @@
     "collections": "^5.1.9",
     "core-js": "^2.6.5",
     "font-awesome": "^4.7.0",
+    "lodash": "^4.17.15",
     "scss": "^0.2.4",
     "socket.io": "^2.2.0",
     "splitpanes": "^1.14.5",

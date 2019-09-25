@@ -215,26 +215,10 @@
             }
         },
 
-        filters: {
-            parseIfIsJson: function (value) {
-                if (value && value.length && value.length === 1) {
-                    if (JsonHelper.isJson(value[0])) {
-                        return JSON.parse(value);
-                    }
-                }
-                return value
-            }
-        },
-
         created() {
             let node = this.node;
-            let self = this;
-            this.isLoadingContent = true;
-            this.dataSource.refreshNodeDetails(node).then(() => {
-                this.isLoadingContent = false;
-                node.contentComponent = self;
-                node.contentComponent.lastRefresh = new Date()
-            })
+            node.contentComponent = self;
+            this.refresh();
         },
 
         beforeDestroy() {

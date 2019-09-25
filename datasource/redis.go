@@ -342,12 +342,15 @@ func (c *RedisClient) scanKeysOnNode(redisClient redis.Cmdable, scanFilter strin
 		scannedKeyCount int
 	)
 
+	excludedKeys := make(map[string]bool)
+
 	for err == nil {
 		keys, cursor, err = redisClient.Scan(cursor, scanFilter, scanSize).Result()
 		if err == nil {
 			scannedKeyCount = scannedKeyCount + len(keys)
 			for _, key := range keys {
 				if regexFilter != nil && !regexFilter.Match([]byte(key)) {
+					excludedKeys[key] = true
 					continue
 				}
 				tokens = strings.Split(key, ":")
@@ -355,6 +358,20 @@ func (c *RedisClient) scanKeysOnNode(redisClient redis.Cmdable, scanFilter strin
 					entrypoint = ""
 					// Complete path and save the number of children
 					acquireMutex()
+
+					// Create the entrypoint prefix containing the ignored levels of trees.
+					entryPointPrefix := ""
+					if minTreeLevel > 0 && minTreeLevel < uint(len(tokens)) {
+						for level := uint(0); level < minTreeLevel; level++ {
+							if entryPointPrefix == "" {
+								entryPointPrefix = tokens[level]
+							} else {
+								entryPointPrefix += ":" + tokens[level]
+							}
+						}
+						entryPointPrefix += ":"
+					}
+
 					for level := minTreeLevel; level <= maxTreeLevel && level < uint(len(tokens)); level++ {
 						if entrypoint == "" {
 							entrypoint = tokens[level]
@@ -367,7 +384,11 @@ func (c *RedisClient) scanKeysOnNode(redisClient redis.Cmdable, scanFilter strin
 							if exists {
 								existingNode.Length = existingNode.Length + 1
 							} else {
-								entrypoints[entrypoint] = &EntryPointNode{Length: 1, HasContent: false}
+								parentHasContent := false
+								if regexFilter != nil {
+									_, parentHasContent = excludedKeys[entryPointPrefix+entrypoint]
+								}
+								entrypoints[entrypoint] = &EntryPointNode{Length: 1, HasContent: parentHasContent}
 							}
 						} else {
 							if exists {
