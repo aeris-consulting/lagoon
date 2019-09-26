@@ -113,8 +113,7 @@
                             :expand-depth=3
                             :value="node.content.data | parseIfIsJson"
                             boxed
-                            copyable
-                            sort>
+                            copyable>
                     </json-viewer>
                 </div>
             </div>

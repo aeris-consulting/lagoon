@@ -20,33 +20,42 @@
 
         <div v-else>
             <splitpanes watchSlots vertical class="splitpanes">
-                <entrypoint-list @display-modal="showConfirmation"
-                                 splitpanes-min=10
-                                 v-bind:dataSource="selectedDatasource"></entrypoint-list>
-                <template v-if="selectedDatasource.selectedNodes.length > 0">
-                    <v-tabs
-                        background-color="primary"
-                        dark>
-                        <template v-for="n in selectedDatasource.selectedNodes">
-                            <v-tab :key="n.getFullName()">
-                                <span class="tab-title" :title="n.getFullName()">
-                                    {{ n.getFullName() }}
-                                </span>
-                            </v-tab>
-                            <v-tab-item :key="n.getFullName() + '-tab-item'">
-                                <entrypoint-content
-                                                    @display-modal="showConfirmation"
-                                                    v-bind:dataSource="selectedDatasource" v-bind:node="n"
-                                                    ></entrypoint-content>
-                            </v-tab-item>
-                        </template>
-                    </v-tabs>
-                </template>
-                <template v-else>
-                    <div>
-                        No node selected
-                    </div>
-                </template>
+                <div 
+                    class="entrypoint-list-container"
+                    splitpanes-min="20"
+                    splitpanes-size="30">
+                    <entrypoint-list
+                                    @display-modal="showConfirmation"
+                                    v-bind:dataSource="selectedDatasource"></entrypoint-list>
+                </div>
+                <div    class="details-container" 
+                    splitpanes-size="70">
+                    <template v-if="selectedDatasource.selectedNodes.length > 0">
+                        <v-tabs
+                            splitpanes-size="70"
+                            background-color="primary"
+                            dark>
+                            <template v-for="n in selectedDatasource.selectedNodes">
+                                <v-tab :key="n.getFullName()">
+                                    <span class="tab-title" :title="n.getFullName()">
+                                        {{ n.getFullName() }}
+                                    </span>
+                                </v-tab>
+                                <v-tab-item :key="n.getFullName() + '-tab-item'">
+                                    <entrypoint-content
+                                                        @display-modal="showConfirmation"
+                                                        v-bind:dataSource="selectedDatasource" v-bind:node="n"
+                                                        ></entrypoint-content>
+                                </v-tab-item>
+                            </template>
+                        </v-tabs>
+                    </template>
+                    <template v-else>
+                        <div >
+                            No node selected
+                        </div>
+                    </template>
+                </div>
             </splitpanes>
         </div>
     </div>
@@ -103,16 +112,25 @@
 
 <style lang="scss" scoped>
 
-    .datasources {
-        margin-top: 10px;
-    }
-
     .splitpanes {
-        min-height: 40vh;
+        // 74px = 64px (navbar) + 10px (margin-top)
+        height: calc(100vh - 74px);
     }
 
     .v-tab {
         max-width: 100%;
+    }
+
+    .details-container {
+        max-height: 100%;
+        width: 100%;
+        overflow-y: auto;
+    }
+
+    .entrypoint-list-container {
+        max-height: 100%;
+        width: 100%;
+        overflow-y: auto;
     }
 
 </style>
