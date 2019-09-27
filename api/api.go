@@ -18,40 +18,34 @@ const MaxLevel = ^uint(0)
 
 type DataSourceUuid string
 
-type DataSourceInfos struct {
+type DataSourceHeader struct {
 	Uuid        DataSourceUuid `json:"uuid" binding:"required"`
 	Vendor      string         `json:"vendor" binding:"required"`
 	Name        string         `json:"name" binding:"required"`
 	Description string         `json:"description"`
 }
 
-var clients = make(map[DataSourceUuid]datasource.Datasource)
+var DataSourcesHeaders []DataSourceHeader
 
+var dataSources = make(map[DataSourceUuid]datasource.Datasource)
 var webSocketChannels = make(map[string]chan datasource.DataBatch)
 var webSocketErrorChannels = make(map[string]chan error)
-
-var DataSources []DataSourceInfos
-
-var webSocketUpgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
 
 func CreateNewDataSource(c *gin.Context) {
 	var dataSource datasource.DataSource
 	if c.Bind(&dataSource) == nil {
 		log.Printf("Creating data source %v\n", dataSource)
-		dataSourceUuid, err := CreateDatasource(&dataSource)
+		dataSourceUuid, err := CreateDataSource(&dataSource)
 
 		if err == nil {
-			dsInfos := DataSourceInfos{
+			dsInfos := DataSourceHeader{
 				Uuid:        dataSourceUuid,
 				Vendor:      dataSource.Vendor,
 				Name:        dataSource.Name,
 				Description: dataSource.Description,
 			}
-			DataSources = append(DataSources, dsInfos)
-			log.Printf("Current data sources: %v \n", DataSources)
+			DataSourcesHeaders = append(DataSourcesHeaders, dsInfos)
+			log.Printf("Current data sources: %v \n", DataSourcesHeaders)
 			c.JSON(http.StatusOK, gin.H{"DataSourceUuid": dataSourceUuid})
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -59,7 +53,7 @@ func CreateNewDataSource(c *gin.Context) {
 	}
 }
 
-func CreateDatasource(source *datasource.DataSource) (DataSourceUuid, error) {
+func CreateDataSource(source *datasource.DataSource) (DataSourceUuid, error) {
 	var err error
 
 	var dataSource datasource.Datasource
@@ -81,7 +75,7 @@ func CreateDatasource(source *datasource.DataSource) (DataSourceUuid, error) {
 			} else {
 				dSUuid = DataSourceUuid(uuid.NewV4().String())
 			}
-			clients[dSUuid] = dataSource
+			dataSources[dSUuid] = dataSource
 		}
 	}
 
@@ -98,13 +92,13 @@ func createRedisClient(source *datasource.DataSource) (datasource.Datasource, er
 }
 
 func ListEntryPoints(c *gin.Context) {
-	cli, ok := FindDatasource(c)
+	ds, ok := findDataSource(c)
 	if ok {
 		filter := getFilter(c)
 		minLevel := getMinLevel(c)
 		maxLevel := getMaxLevel(c)
 		entrypointsChannel := make(chan datasource.DataBatch, datasource.SwitchToWsBarrier)
-		status, err := cli.ListEntryPoints(filter, entrypointsChannel, minLevel, maxLevel)
+		status, err := ds.ListEntryPoints(filter, entrypointsChannel, minLevel, maxLevel)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 
@@ -152,10 +146,10 @@ func getMaxLevel(c *gin.Context) uint {
 }
 
 func GetEntryPointInfos(c *gin.Context) {
-	cli, ok := FindDatasource(c)
+	ds, ok := findDataSource(c)
 	if ok {
 		entrypoint := datasource.EntryPoint(c.Params.ByName("entrypoint"))
-		infos, err := cli.GetEntryPointInfos(entrypoint)
+		infos, err := ds.GetEntryPointInfos(entrypoint)
 		if err == nil {
 			c.JSON(http.StatusOK, gin.H{"type": datasource.EntryPointTypesAsString[infos.Type], "length": infos.Length})
 		} else {
@@ -165,12 +159,12 @@ func GetEntryPointInfos(c *gin.Context) {
 }
 
 func GetEntryPointContent(c *gin.Context) {
-	cli, ok := FindDatasource(c)
+	ds, ok := findDataSource(c)
 	if ok {
 		entrypoint := datasource.EntryPoint(c.Params.ByName("entrypoint"))
 		filter := getFilter(c)
 		dataChannel := make(chan datasource.DataBatch, datasource.SwitchToWsBarrier)
-		status, err := cli.GetContent(entrypoint, filter, dataChannel)
+		status, err := ds.GetContent(entrypoint, filter, dataChannel)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		} else if status == datasource.Moved {
@@ -187,10 +181,10 @@ func GetEntryPointContent(c *gin.Context) {
 }
 
 func DeleteEntryPoint(c *gin.Context) {
-	cli, ok := FindDatasource(c)
+	ds, ok := findDataSource(c)
 	if ok {
 		entrypoint := datasource.EntryPoint(c.Params.ByName("entrypoint"))
-		err := cli.DeleteEntrypoint(entrypoint)
+		err := ds.DeleteEntrypoint(entrypoint)
 		if err == nil {
 			c.JSON(http.StatusOK, gin.H{"message": "Entry point was deleted"})
 		} else {
@@ -200,11 +194,11 @@ func DeleteEntryPoint(c *gin.Context) {
 }
 
 func DeleteEntryPointChildren(c *gin.Context) {
-	cli, ok := FindDatasource(c)
+	ds, ok := findDataSource(c)
 	if ok {
 		entrypoint := datasource.EntryPoint(c.Params.ByName("entrypoint"))
 		errorChannel := make(chan error, datasource.SwitchToWsBarrier)
-		_, err := cli.DeleteEntrypointChidren(entrypoint, errorChannel)
+		_, err := ds.DeleteEntrypointChidren(entrypoint, errorChannel)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		} else {
@@ -215,13 +209,13 @@ func DeleteEntryPointChildren(c *gin.Context) {
 	}
 }
 
-func FindDatasource(c *gin.Context) (datasource.Datasource, bool) {
+func findDataSource(c *gin.Context) (datasource.Datasource, bool) {
 	datasourceUuid := DataSourceUuid(c.Params.ByName("DataSourceUuid"))
-	cli, ok := clients[datasourceUuid]
+	ds, ok := dataSources[datasourceUuid]
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Datasource with UUID %s was not found", datasourceUuid)})
 	}
-	return cli, ok
+	return ds, ok
 }
 
 func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
