@@ -124,7 +124,6 @@
     .details-container {
         max-height: 100%;
         width: 100%;
-        overflow-y: auto;
     }
 
     .entrypoint-list-container {
