@@ -7,13 +7,9 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [10.x]
-
     steps:
     - uses: actions/checkout@v1
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Yarn
       uses: nuxt/actions-yarn@node-10
     - name: yarn install and test
       working-directory: ./ui
