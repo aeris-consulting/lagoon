@@ -18,7 +18,7 @@ jobs:
     - name: yarn install and test
       working-directory: ./ui
       run: |
-        npm
+        yarn
         yarn test:unit
       env:
         CI: true
