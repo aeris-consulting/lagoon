@@ -44,7 +44,7 @@
                             <template v-slot:activator="{ on }">
                                 <v-icon left v-on="on">mdi-key</v-icon>
                             </template>
-                            <span>Type of node</span>
+                            <span>Name of node (click to copy)</span>
                         </v-tooltip>
                         {{ node.getFullName() }}
                     </v-chip>
@@ -71,7 +71,7 @@
                                 <template v-slot:activator="{ on }">
                                     <v-icon left v-on="on">mdi-shape</v-icon>
                                 </template>
-                                <span>Type of node</span>
+                                <span>Type</span>
                             </v-tooltip>
                             {{ node.info.type.toLowerCase() }}
                         </v-chip>
@@ -81,7 +81,7 @@
                                 <template v-slot:activator="{ on }">
                                     <v-icon left v-on="on">mdi-ruler</v-icon>
                                 </template>
-                                <span>length of value</span>
+                                <span>Length</span>
                             </v-tooltip>
                             {{ node.info.length }}
                         </v-chip>
@@ -92,29 +92,18 @@
             <div class="content mt-2" v-if="node.content && node.info">
                 <h4>Content</h4>
                 <div v-if="node.info.type == 'HASH'">
-                    <v-simple-table dense>
-                        <thead>
-                        <tr>
-                            <td>Field</td>
-                            <td>Value</td>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr :key="k" class="content-data" v-for="(v,k) in node.content.data[0]">
-                            <td>{{ k }}</td>
-                            <td>{{ v }}</td>
-                        </tr>
-                        </tbody>
-                    </v-simple-table>
+                    <json-viewer
+                            :expand-depth=3
+                            :value="node.content.data[0] | parseIfIsJson"
+                            copyable>
+                    </json-viewer>
                 </div>
 
                 <div class="content-data" v-else>
                     <json-viewer
-                            :expand-depth=3
+                            :expand-depth=1
                             :value="node.content.data | parseIfIsJson"
-                            boxed
-                            copyable
-                            sort>
+                            copyable>
                     </json-viewer>
                 </div>
             </div>
@@ -140,6 +129,7 @@
                 observationFrequency: 10,
                 lastRefresh: null,
                 isLoadingContent: false,
+                format: null
             }
         },
 
@@ -234,53 +224,49 @@
         margin-left: 10px;
     }
 
-    .entrypoint-content {
 
-        width: 100%;
-
-        h2 {
-            font-size: 1.2em;
-        }
-
-        h3 {
-            font-size: 1.1em;
-        }
-
-        .button-bar {
-            background-color: lightgrey;
-            padding: 5px;
-            padding-left: 15px;
-            border-radius: .25rem;
-            margin-bottom: 10px;
-            font-size: 14px;
-
-            .icon {
-                margin: 0;
-                margin-right: 5px;
-                cursor: pointer;
-            }
-
-            .observation-frequency {
-                width: 30px;
-                font-size: 12px;
-                text-align: right;
-            }
-
-            .space {
-                min-width: 20px;
-            }
-        }
-
-        .info {
-            margin-top: 20px;
-            margin-bottom: 30px;
-        }
-
-        .content-timestamp-data, .info-data, .content-data {
-            font-family: "Courier New";
-            font-size: 14px;
-            text-align: left;
-        }
-
+    h2 {
+        font-size: 1.2em;
     }
+
+    h3 {
+        font-size: 1.1em;
+    }
+
+    .button-bar {
+        background-color: lightgrey;
+        padding: 5px;
+        padding-left: 15px;
+        border-radius: .25rem;
+        margin-bottom: 10px;
+        font-size: 14px;
+
+        .icon {
+            margin: 0;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+
+        .observation-frequency {
+            width: 30px;
+            font-size: 12px;
+            text-align: right;
+        }
+
+        .space {
+            min-width: 20px;
+        }
+    }
+
+    .info {
+        margin-top: 20px;
+        margin-bottom: 30px;
+    }
+
+    .content-data td {
+        font-family: "Courier New";
+        font-size: 14px;
+        text-align: left;
+    }
+
 </style>
