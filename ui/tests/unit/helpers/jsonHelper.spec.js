@@ -1,4 +1,4 @@
-import JsonHelper from '../../../src/helpers/JsonHelper.js'
+import JsonHelper from '../../../src/helpers/JsonHelper'
 
 describe('JsonHelper', () => {
   it('testing valid json', () => {
