@@ -35,76 +35,78 @@
             </v-row>
         </template>
         <template v-else>
-            <v-row>
-                <v-col cols="12">
-                    <v-chip
-                            @click="copyKey"
-                            class="mr-2">
-                        <v-tooltip bottom>
-                            <template v-slot:activator="{ on }">
-                                <v-icon left v-on="on">mdi-key</v-icon>
+            <div class="entrypoint-content-panel">
+                <v-row>
+                    <v-col cols="12">
+                        <v-chip
+                                @click="copyKey"
+                                class="mr-2">
+                            <v-tooltip bottom>
+                                <template v-slot:activator="{ on }">
+                                    <v-icon left v-on="on">mdi-key</v-icon>
+                                </template>
+                                <span>Name of node (click to copy)</span>
+                            </v-tooltip>
+                            {{ node.getFullName() }}
+                        </v-chip>
+                    </v-col>
+                </v-row>
+                <v-row>
+                    <v-col cols="12">
+                        <v-chip
+                                class="mr-2">
+                            <v-tooltip bottom>
+                                <template v-slot:activator="{ on }">
+                                    <v-icon left v-on="on">mdi-clock</v-icon>
+                                </template>
+                                <span>Last refresh time</span>
+                            </v-tooltip>
+                            <template v-if="lastRefresh">
+                                {{ lastRefresh.toISOString() }}
                             </template>
-                            <span>Name of node (click to copy)</span>
-                        </v-tooltip>
-                        {{ node.getFullName() }}
-                    </v-chip>
-                </v-col>
-            </v-row>
-            <v-row>
-                <v-col cols="12">
-                    <v-chip
-                            class="mr-2">
-                        <v-tooltip bottom>
-                            <template v-slot:activator="{ on }">
-                                <v-icon left v-on="on">mdi-clock</v-icon>
-                            </template>
-                            <span>Last refresh time</span>
-                        </v-tooltip>
-                        <template v-if="lastRefresh">
-                            {{ lastRefresh.toISOString() }}
+                        </v-chip>
+                        <template v-if="node.info">
+                            <v-chip
+                                    class="mr-2">
+                                <v-tooltip bottom>
+                                    <template v-slot:activator="{ on }">
+                                        <v-icon left v-on="on">mdi-shape</v-icon>
+                                    </template>
+                                    <span>Type</span>
+                                </v-tooltip>
+                                {{ node.info.type.toLowerCase() }}
+                            </v-chip>
+                            <v-chip
+                                    class="mr-2">
+                                <v-tooltip bottom>
+                                    <template v-slot:activator="{ on }">
+                                        <v-icon left v-on="on">mdi-ruler</v-icon>
+                                    </template>
+                                    <span>Length</span>
+                                </v-tooltip>
+                                {{ node.info.length }}
+                            </v-chip>
                         </template>
-                    </v-chip>
-                    <template v-if="node.info">
-                        <v-chip
-                                class="mr-2">
-                            <v-tooltip bottom>
-                                <template v-slot:activator="{ on }">
-                                    <v-icon left v-on="on">mdi-shape</v-icon>
-                                </template>
-                                <span>Type</span>
-                            </v-tooltip>
-                            {{ node.info.type.toLowerCase() }}
-                        </v-chip>
-                        <v-chip
-                                class="mr-2">
-                            <v-tooltip bottom>
-                                <template v-slot:activator="{ on }">
-                                    <v-icon left v-on="on">mdi-ruler</v-icon>
-                                </template>
-                                <span>Length</span>
-                            </v-tooltip>
-                            {{ node.info.length }}
-                        </v-chip>
-                    </template>
-                </v-col>
-            </v-row>
+                    </v-col>
+                </v-row>
 
-            <div class="content mt-2" v-if="node.content && node.info">
-                <h4>Content</h4>
-                <div v-if="node.info.type == 'HASH'">
-                    <json-viewer
-                            :expand-depth=3
-                            :value="node.content.data[0] | parseIfIsJson"
-                            copyable>
-                    </json-viewer>
-                </div>
+                <div class="content mt-2" v-if="node.content && node.info">
+                    <h4>Content</h4>
+                    <div v-if="node.info.type == 'HASH'">
+                        <json-viewer
+                                :expand-depth=3
+                                :value="node.content.data[0] | parseIfIsJson"
+                                copyable>
+                        </json-viewer>
+                    </div>
 
-                <div class="content-data" v-else>
-                    <json-viewer
-                            :expand-depth=1
-                            :value="node.content.data | parseIfIsJson"
-                            copyable>
-                    </json-viewer>
+                    <div class="content-data" v-else>
+                        <json-viewer
+                                :expand-depth=1
+                                :value="node.content.data | parseIfIsJson"
+                                copyable>
+                        </json-viewer>
+                    </div>
                 </div>
             </div>
 

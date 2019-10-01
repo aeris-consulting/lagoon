@@ -13,7 +13,7 @@
                 {{ error.message }}
             </v-alert>
         </div>
-        <div>
+        <div class="filter-panel">
             <div>
                 <div class="filter-container">
                     <v-text-field
@@ -31,7 +31,8 @@
             </div>
         </div>
 
-        <div v-if="root.hasChildren() && root.children !== null">
+        <div class="entrypoint-children-panel" 
+            v-if="root.hasChildren() && root.children !== null">
             <entrypoint-children @display-modal="showConfirmation"
                                  v-bind:children="root.children.values()"
                                  v-bind:dataSource="dataSource"></entrypoint-children>
@@ -100,6 +101,23 @@
     div#entrypoints {
         text-align: left;
         margin-right: 10px;
+        position: relative;
+        margin: 0 auto;
+        height: 100%;
+
+        .filter-panel {
+            height: 70px;
+            width: 100%;
+        }
+
+        .entrypoint-children-panel {
+            overflow-x: auto;
+            top: 70px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            position: absolute;
+        }
     }
 
     div#entrypoints div.data {
