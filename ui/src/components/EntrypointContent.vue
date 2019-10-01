@@ -35,7 +35,7 @@
             </v-row>
         </template>
         <template v-else>
-            <div class="content-panel">
+            <div class="entrypoint-content-panel">
                 <v-row>
                     <v-col cols="12">
                         <v-chip
@@ -281,13 +281,5 @@
             font-size: 14px;
             text-align: left;
         }
-
-        .content-panel {
-            height: calc(100vh - 189px);
-            width: 100%;
-            overflow-y: auto;
-            overflow-x: hidden;
-        }
-
     }
 </style>
