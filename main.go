@@ -42,14 +42,14 @@ var rootCmd = &cobra.Command{
 			}
 
 			for _, ds := range configuration.Datasources {
-				dsUuid, _ := api.CreateDatasource(&ds)
-				dsInfos := api.DataSourceInfos{
+				dsUuid, _ := api.CreateDataSource(&ds)
+				dsInfos := api.DataSourceHeader{
 					Uuid:        dsUuid,
 					Vendor:      ds.Vendor,
 					Name:        ds.Name,
 					Description: ds.Description,
 				}
-				api.DataSources = append(api.DataSources, dsInfos)
+				api.DataSourcesHeaders = append(api.DataSourcesHeaders, dsInfos)
 			}
 		}
 
@@ -93,8 +93,8 @@ func setupRouter() *gin.Engine {
 		api.CreateNewDataSource(c)
 	})
 	r.GET("/datasource", func(c *gin.Context) {
-		log.Printf("Current data sources: %v \n", api.DataSources)
-		c.JSON(http.StatusOK, gin.H{"datasources": api.DataSources})
+		log.Printf("Current data sources: %v \n", api.DataSourcesHeaders)
+		c.JSON(http.StatusOK, gin.H{"datasources": api.DataSourcesHeaders})
 	})
 
 	// list entry points
@@ -121,16 +121,6 @@ func setupRouter() *gin.Engine {
 	// list entry points
 	r.GET("/ws/:wsUuid", func(c *gin.Context) {
 		api.ReadChannelContentAndSendToWebSocket(c)
-	})
-
-	// Ping test
-	r.GET("/ping/:DataSourceUuid", func(c *gin.Context) {
-		_, ok := api.FindDatasource(c)
-		if ok {
-			dataSourceUuid := c.Params.ByName("DataSourceUuid")
-			log.Printf("Datasource %s pinged\n", dataSourceUuid)
-			c.String(http.StatusOK, "pong")
-		}
 	})
 
 	r.GET("/", func(context *gin.Context) {

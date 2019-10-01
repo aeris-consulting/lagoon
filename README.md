@@ -3,8 +3,9 @@
 
 ## Project setup
 ### UI
+[Yarn](https://yarnpkg.com) is recommended for front-end development.
 ```
-cd ui && npm install
+cd ui && yarn
 ```
 
 ### Backend
@@ -23,7 +24,7 @@ cd docker && ./start_redis_single.sh
 ### UI part (Compiles and hot-reloads)
 ```
 
-cd ui && npm run serve
+cd ui && yarn serve
 ```
 
 ### Backend
@@ -73,7 +74,7 @@ curl -X PUT \
 ## Build 
 ### UI 
 ```
-cd ui && npm run build
+cd ui && yarn build
 ```
 
 ### Backend
@@ -88,12 +89,13 @@ docker build . -t aerisconsulting/lagoon --no-cache && docker push aerisconsulti
 
 ## UI Misc
 ### Run the UI tests
+Running unit test with npm seems problematic, I am not able to fix the issue, therefore it's recommended to use [yarn](https://yarnpkg.com) [github issue](https://github.com/vuejs/vue-cli/issues/1879#issuecomment-412300256)
 ```
-npm run test
+yarn test:unit
 ```
 ### Lints and fixes files
 ```
-npm run lint
+yarn lint
 ```
 ### Customize configuration
 See [Configuration Reference](https://cli.vuejs.org/config/).
