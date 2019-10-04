@@ -15,6 +15,8 @@ import (
 	"strconv"
 )
 
+const contextPath = "/lagoon"
+
 var rootCmd = &cobra.Command{
 	Use:   "lagoon",
 	Short: "Lagoon is a GUI to visualize data from various middleware",
@@ -53,11 +55,13 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		r := setupRouter()
 		// Listen and Server in 0.0.0.0:port
 		if configuration.Port == 0 {
 			configuration.Port = 4000
 		}
+
+		r := setupRouter()
+
 		r.Run(":" + strconv.Itoa(configuration.Port))
 	},
 }
@@ -83,48 +87,56 @@ func setupRouter() *gin.Engine {
 	// Disable Console Color
 	// gin.DisableConsoleColor()
 	r := gin.Default()
+	r.RedirectTrailingSlash = true
+	r.RedirectFixedPath = true
 
 	r.Use(cors.Default())
 
-	r.Static("/ui", "./ui/dist")
-
 	// Create a data source
-	r.PUT("/datasource", func(c *gin.Context) {
+	r.PUT(contextPath+"/datasource", func(c *gin.Context) {
 		api.CreateNewDataSource(c)
 	})
-	r.GET("/datasource", func(c *gin.Context) {
+	r.GET(contextPath+"/datasource", func(c *gin.Context) {
 		log.Printf("Current data sources: %v \n", api.DataSourcesHeaders)
 		c.JSON(http.StatusOK, gin.H{"datasources": api.DataSourcesHeaders})
 	})
 
 	// list entry points
-	r.GET("/data/:DataSourceUuid/entrypoint", func(c *gin.Context) {
+	r.GET(contextPath+"/data/:DataSourceUuid/entrypoint", func(c *gin.Context) {
 		api.ListEntryPoints(c)
 	})
 
-	r.GET("/data/:DataSourceUuid/entrypoint/:entrypoint/info", func(c *gin.Context) {
+	r.GET(contextPath+"/data/:DataSourceUuid/entrypoint/:entrypoint/info", func(c *gin.Context) {
 		api.GetEntryPointInfos(c)
 	})
 
-	r.GET("/data/:DataSourceUuid/entrypoint/:entrypoint/content", func(c *gin.Context) {
+	r.GET(contextPath+"/data/:DataSourceUuid/entrypoint/:entrypoint/content", func(c *gin.Context) {
 		api.GetEntryPointContent(c)
 	})
 
-	r.DELETE("/data/:DataSourceUuid/entrypoint/:entrypoint", func(c *gin.Context) {
+	r.DELETE(contextPath+"/data/:DataSourceUuid/entrypoint/:entrypoint", func(c *gin.Context) {
 		api.DeleteEntryPoint(c)
 	})
 
-	r.DELETE("/data/:DataSourceUuid/entrypoint/:entrypoint/children", func(c *gin.Context) {
+	r.DELETE(contextPath+"/data/:DataSourceUuid/entrypoint/:entrypoint/children", func(c *gin.Context) {
 		api.DeleteEntryPointChildren(c)
 	})
 
 	// list entry points
-	r.GET("/ws/:wsUuid", func(c *gin.Context) {
+	r.GET(contextPath+"/ws/:wsUuid", func(c *gin.Context) {
 		api.ReadChannelContentAndSendToWebSocket(c)
 	})
 
+	r.Static(contextPath+"/ui", "./ui/dist")
+
+	r.GET(contextPath+"/", func(context *gin.Context) {
+		log.Printf("Context: %s\n", context.Request.RequestURI)
+		context.Redirect(http.StatusMovedPermanently, contextPath+"/ui")
+	})
+
 	r.GET("/", func(context *gin.Context) {
-		context.Redirect(http.StatusMovedPermanently, "/ui")
+		log.Printf("Context: %s\n", context.Request.RequestURI)
+		context.Redirect(http.StatusMovedPermanently, contextPath+"/ui")
 	})
 
 	return r

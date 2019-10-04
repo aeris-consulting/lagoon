@@ -236,14 +236,19 @@ func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
 	} else {
 		delete(webSocketChannels, wsUuid)
 	}
-
 	upgrader := websocket.Upgrader{
+		ReadBufferSize:    1024,
+		WriteBufferSize:   1024,
 		EnableCompression: true,
 		CheckOrigin:       func(r *http.Request) bool { return true },
 	}
+
+	// Force headers for calls behind reverse-proxy.
+	c.Request.Header.Set("Connection", "upgrade")
+	c.Request.Header.Set("Upgrade", "websocket")
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Printf("Failed to set websocket upgrade: %+v\n", err)
+		log.Printf("Failed to set websocket upgrade: %v\n", err)
 		return
 	}
 

@@ -1,5 +1,5 @@
 module.exports = {
-    publicPath: '/ui/',
+    publicPath: '/lagoon/ui/',
     assetsDir: 'asserts',
     css: {
         modules: true,

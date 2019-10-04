@@ -78,8 +78,8 @@
 
             refresh: function () {
                 let root = '..';
-                if (process.env.VUE_APP_API_SCHEME && process.env.VUE_APP_API_URL) {
-                    root = process.env.VUE_APP_API_SCHEME + '://' + process.env.VUE_APP_API_URL;
+                if (!_.isNil(process) && !_.isNil(process.env) && !_.isNil(process.env.VUE_APP_API_BASE_URL)) {
+                    root = process.env.VUE_APP_API_BASE_URL;
                 }
                 axios.get(root + '/datasource')
                     .then(response => {
