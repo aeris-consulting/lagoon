@@ -13,20 +13,17 @@ export default class DataSource {
         this.selectedNodes = [];
         this.readonly = false;
 
-        if (!_.isNil(process) && !_.isNil(process.env) && !_.isNil(process.env.VUE_APP_API_SCHEME) && !_.isNil(process.env.VUE_APP_API_URL)) {
-            this.apiRoot = process.env.VUE_APP_API_SCHEME + '://' + process.env.VUE_APP_API_URL;
-            if (process.env.VUE_APP_API_SCHEME == 'https:') {
-                this.wsRoot = 'wss://' + process.env.VUE_APP_API_URL;
-            } else {
-                this.wsRoot = 'ws://' + process.env.VUE_APP_API_URL;
-            }
+        if (!_.isNil(process) && !_.isNil(process.env) && !_.isNil(process.env.VUE_APP_API_BASE_URL) && !_.isNil(process.env.VUE_APP_WS_BASE_URL)) {
+            this.apiRoot = process.env.VUE_APP_API_BASE_URL;
+            this.wsRoot = process.env.VUE_APP_WS_BASE_URL;
         } else {
-            this.apiRoot = '..';
+            this.apiRoot = location.pathname + '..';
             if (location.protocol == 'https:') {
-                this.wsRoot = 'wss://' + location.hostname + ':' + location.port;
+                this.wsRoot = 'wss://';
             } else {
-                this.wsRoot = 'ws://' + location.hostname + ':' + location.port;
+                this.wsRoot = 'ws://';
             }
+            this.wsRoot += location.hostname + ':' + location.port + this.apiRoot
         }
         // eslint-disable-next-line
         console.log(this);
