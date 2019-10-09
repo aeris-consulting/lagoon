@@ -22,3 +22,7 @@ yarn-error.log*
 /docker/data/
 /docker/nohup.out
 /docker/cluster-data/
+
+/src/vendor/*
+!/src/vendor/vendor.json
+pkg

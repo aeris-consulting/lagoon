@@ -1,5 +1,4 @@
 .git
+.github
 ui/node_modules
-ui/public
-ui/src
 docker
