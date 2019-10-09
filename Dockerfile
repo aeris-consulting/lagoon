@@ -1,4 +1,4 @@
-FROM golang:alpine as builder
+FROM golang:alpine as go-builder
 
 RUN apk update && apk upgrade && \
     apk add --no-cache bash git openssh
@@ -7,17 +7,30 @@ RUN go get -u github.com/kardianos/govendor
 
 WORKDIR /go/src/lagoon
 COPY . .
-RUN govendor install
+RUN govendor sync && govendor install
 RUN go install -v ./...
+
+FROM node as node-builder
+
+RUN apt-get -y update \
+	&& apt-get install -y git
+
+RUN yarn global add @vue/cli -g
+RUN yarn global add  @vue/cli-service -g
+
+WORKDIR /ui
+COPY ./ui .
+RUN yarn install
+RUN yarn build
 
 
 FROM alpine
 RUN apk update && apk upgrade && \
-    apk add --no-cache netcat-openbsd
+    apk add --no-cache netcat-openbsd bash
 
 WORKDIR /lagoon
-COPY ./ui/dist ./ui/dist
-COPY --from=builder /go/bin/lagoon .
+COPY --from=node-builder /ui/dist ./ui/dist
+COPY --from=go-builder /go/bin/lagoon .
 
 COPY entrypoint.sh /usr/local/bin
 RUN chmod +x /usr/local/bin/entrypoint.sh

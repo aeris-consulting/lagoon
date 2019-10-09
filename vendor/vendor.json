@@ -176,6 +176,5 @@
 			"path": "https://github.com/go-redis/redis",
 			"revision": ""
 		}
-	],
-	"rootPath": "lagoon"
+	]
 }
