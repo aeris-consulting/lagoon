@@ -1,10 +1,11 @@
-package datasource
+package redis
 
 // https://github.com/go-redis/redis/blob/master/example_test.go
 import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis"
+	"lagoon/datasource"
 	"log"
 	"reflect"
 	regexp2 "regexp"
@@ -22,9 +23,41 @@ var invalidProtocolError struct {
 }
 
 type RedisClient struct {
-	Datasource    *DataSource
-	client        redis.Cmdable
-	activeStreams bool
+	Datasource *datasource.DataSourceDescriptor
+	client     redis.Cmdable
+}
+
+type RedisVendor struct {
+}
+
+func init() {
+	datasource.DeclareImplementation(&RedisVendor{})
+}
+
+func (c *RedisVendor) Accept(source *datasource.DataSourceDescriptor) bool {
+	return "redis" == strings.TrimSpace(strings.ToLower(source.Vendor))
+}
+
+func (c *RedisVendor) CreateDataSource(source *datasource.DataSourceDescriptor) (datasource.DataSource, error) {
+	datasource := RedisClient{
+		Datasource: source,
+	}
+	err := datasource.Open()
+
+	return &datasource, err
+}
+
+func (c *RedisClient) GetInfos() (interface{}, error) {
+	switch c.client.(type) {
+	case *redis.ClusterClient:
+		return c.client.ClusterInfo().Result()
+	default:
+		return c.client.Info().Result()
+	}
+}
+
+func (c *RedisClient) GetStatus() (interface{}, error) {
+	return c.GetInfos()
 }
 
 func (c *RedisClient) Open() error {
@@ -33,7 +66,6 @@ func (c *RedisClient) Open() error {
 		pong, err := c.client.Ping().Result()
 		if err == nil {
 			log.Printf("Connection status of ping: %v\n", pong)
-			c.activeStreams = true
 		} else {
 			log.Printf("ERROR When pinging: %s\n", err.Error())
 		}
@@ -119,18 +151,12 @@ func (c *RedisClient) createSentinelConnection(url string) error {
 	defaultOptions := redis.FailoverOptions{}
 
 	var e error
-	var sentinelPassword string
 	var password string
-	var ok bool
 
 	if c.Datasource.Password != "" {
 		password = c.Datasource.Password
 	} else {
 		password = defaultOptions.Password
-	}
-
-	if sentinelPassword, ok = c.Datasource.Configuration["sentinelPassword"]; !ok {
-		sentinelPassword = defaultOptions.SentinelPassword
 	}
 
 	readTimeout := defaultOptions.ReadTimeout
@@ -166,14 +192,13 @@ func (c *RedisClient) createSentinelConnection(url string) error {
 	}
 
 	opts := redis.FailoverOptions{
-		MasterName:       c.Datasource.Configuration["master"],
-		SentinelAddrs:    strings.Split(url, ","),
-		SentinelPassword: sentinelPassword,
-		Password:         password,
-		ReadTimeout:      readTimeout,
-		WriteTimeout:     writeTimeout,
-		MaxConnAge:       maxConnAge,
-		MinIdleConns:     minIdleConns,
+		MasterName:    c.Datasource.Configuration["master"],
+		SentinelAddrs: strings.Split(url, ","),
+		Password:      password,
+		ReadTimeout:   readTimeout,
+		WriteTimeout:  writeTimeout,
+		MaxConnAge:    maxConnAge,
+		MinIdleConns:  minIdleConns,
 		OnConnect: func(conn *redis.Conn) error {
 			log.Printf("Connected to the sentinels %v \n", strings.Split(url, ","))
 			return nil
@@ -249,26 +274,24 @@ func (c *RedisClient) Close() {
 	}
 }
 
-func (c *RedisClient) ListEntryPoints(filter string, entrypointsChannel chan<- DataBatch, minTreeLevel uint, maxTreeLevel uint) (ActionStatus, error) {
+func (c *RedisClient) ListEntryPoints(filter string, entrypointsChannel chan<- datasource.DataBatch, minTreeLevel uint, maxTreeLevel uint) (datasource.ActionStatus, error) {
 	// TODO Add list of the channels
 	// https://stackoverflow.com/questions/8165188/redis-command-to-get-all-available-channels-for-pub-sub
 
 	var (
 		err          error
-		actionStatus ActionStatus
+		actionStatus datasource.ActionStatus
 	)
 
 	err = c.client.Ping().Err()
 	if err == nil {
 		go c.extractEntryPointsWithLevels(err, filter, minTreeLevel, maxTreeLevel, entrypointsChannel)
-		actionStatus = Moved
+		actionStatus = datasource.Moved
 	}
 	return actionStatus, err
 }
 
-func (c *RedisClient) extractEntryPointsWithLevels(err error, filter string, minTreeLevel uint, maxTreeLevel uint, entrypointsChannel chan<- DataBatch) {
-	var entrypoints = make(map[string]*EntryPointNode)
-
+func (c *RedisClient) extractEntryPointsWithLevels(err error, filter string, minTreeLevel uint, maxTreeLevel uint, entrypointsChannel chan<- datasource.DataBatch) {
 	filterTokens := strings.Split(filter, ",")
 	scanFilter := filterTokens[0]
 	var regexFilter *regexp2.Regexp
@@ -276,31 +299,7 @@ func (c *RedisClient) extractEntryPointsWithLevels(err error, filter string, min
 		regexFilter, _ = regexp2.Compile(filterTokens[1])
 	}
 
-	var scannedKeyCount int
-	switch client := c.client.(type) {
-	case *redis.ClusterClient:
-		mutex := sync.Mutex{}
-		loopError := client.ForEachNode(func(client *redis.Client) error {
-			roleResult, err := client.Do("ROLE").Result()
-			if err == nil {
-				role := (roleResult.([]interface{})[0]).(string)
-				if "master" == strings.ToLower(role) {
-					log.Printf("Scanning keys on %v\n", roleResult)
-					err, count := c.scanKeysOnNode(client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
-					scannedKeyCount = scannedKeyCount + count
-					return err
-				}
-			}
-			return err
-		})
-
-		if loopError != nil {
-			err = loopError
-		}
-	default:
-		err, scannedKeyCount = c.scanKeysOnNode(c.client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() {}, func() {})
-	}
-
+	scannedKeyCount, entrypoints, err := c.scanAllNodes(scanFilter, regexFilter, minTreeLevel, maxTreeLevel)
 	if err != nil {
 		log.Printf("ERROR while scanning: %s\n", err.Error())
 	} else {
@@ -311,10 +310,10 @@ func (c *RedisClient) extractEntryPointsWithLevels(err error, filter string, min
 		}
 		sort.Strings(orderedKeys)
 		var valuesToSend []interface{}
-		var node *EntryPointNode
+		var node *datasource.EntryPointNode
 		for _, e := range orderedKeys {
 			node = entrypoints[e]
-			node.Path = EntryPoint(e)
+			node.Path = datasource.EntryPoint(e)
 			valuesToSend = append(valuesToSend, node)
 
 			// Push messages when valuesToSend is equal to the scan size.
@@ -328,11 +327,44 @@ func (c *RedisClient) extractEntryPointsWithLevels(err error, filter string, min
 	}
 
 	// End of the stream.
-	entrypointsChannel <- DataBatch{}
+	entrypointsChannel <- datasource.DataBatch{}
 	close(entrypointsChannel)
 }
 
-func (c *RedisClient) scanKeysOnNode(redisClient redis.Cmdable, scanFilter string, regexFilter *regexp2.Regexp, minTreeLevel uint, maxTreeLevel uint, entrypoints map[string]*EntryPointNode, acquireMutex func(), releaseMutex func()) (error, int) {
+func (c *RedisClient) scanAllNodes(scanFilter string, regexFilter *regexp2.Regexp, minTreeLevel uint, maxTreeLevel uint) (int, map[string]*datasource.EntryPointNode, error) {
+	var (
+		err             error
+		scannedKeyCount int
+	)
+
+	entrypoints := make(map[string]*datasource.EntryPointNode)
+	switch client := c.client.(type) {
+	case *redis.ClusterClient:
+		mutex := sync.Mutex{}
+		loopError := client.ForEachNode(func(client *redis.Client) error {
+			roleResult, err := client.Do("ROLE").Result()
+			if err == nil {
+				role := (roleResult.([]interface{})[0]).(string)
+				if "master" == strings.ToLower(role) {
+					log.Printf("Scanning keys on %v\n", roleResult)
+					count, err := c.scanOneNode(client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
+					scannedKeyCount = scannedKeyCount + count
+					return err
+				}
+			}
+			return err
+		})
+
+		if loopError != nil {
+			err = loopError
+		}
+	default:
+		scannedKeyCount, err = c.scanOneNode(c.client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() {}, func() {})
+	}
+	return scannedKeyCount, entrypoints, err
+}
+
+func (c *RedisClient) scanOneNode(redisClient redis.Cmdable, scanFilter string, regexFilter *regexp2.Regexp, minTreeLevel uint, maxTreeLevel uint, entrypoints map[string]*datasource.EntryPointNode, acquireMutex func(), releaseMutex func()) (int, error) {
 	var (
 		cursor          uint64
 		keys            []string
@@ -388,13 +420,21 @@ func (c *RedisClient) scanKeysOnNode(redisClient redis.Cmdable, scanFilter strin
 								if regexFilter != nil {
 									_, parentHasContent = excludedKeys[entryPointPrefix+entrypoint]
 								}
-								entrypoints[entrypoint] = &EntryPointNode{Length: 1, HasContent: parentHasContent}
+								entrypoints[entrypoint] = &datasource.EntryPointNode{
+									Length:     1,
+									HasContent: parentHasContent,
+									Path:       datasource.EntryPoint(entrypoint),
+								}
 							}
 						} else {
 							if exists {
 								existingNode.HasContent = true
 							} else {
-								entrypoints[entrypoint] = &EntryPointNode{Length: 0, HasContent: true}
+								entrypoints[entrypoint] = &datasource.EntryPointNode{
+									Length:     0,
+									HasContent: true,
+									Path:       datasource.EntryPoint(entrypoint),
+								}
 							}
 						}
 					}
@@ -408,13 +448,13 @@ func (c *RedisClient) scanKeysOnNode(redisClient redis.Cmdable, scanFilter strin
 			}
 		}
 	}
-	return err, scannedKeyCount
+	return scannedKeyCount, err
 }
 
-func (c *RedisClient) scan(filter string, dataChannel chan<- DataBatch, scanFn func(cursor uint64, match string, count int64) *redis.ScanCmd, formatFn func(values []string) interface{}) (ActionStatus, error) {
+func (c *RedisClient) scan(filter string, dataChannel chan<- datasource.DataBatch, scanFn func(cursor uint64, match string, count int64) *redis.ScanCmd, formatFn func(values []string) interface{}) (datasource.ActionStatus, error) {
 	var (
 		err          error
-		actionStatus ActionStatus
+		actionStatus datasource.ActionStatus
 	)
 
 	err = c.client.Ping().Err()
@@ -432,7 +472,7 @@ func (c *RedisClient) scan(filter string, dataChannel chan<- DataBatch, scanFn f
 			if err == nil {
 				c.sendValuesToChannel(formatFn(keys), dataChannel)
 				if cursor == 0 {
-					actionStatus = Completed
+					actionStatus = datasource.Completed
 					break
 				}
 			} else {
@@ -442,7 +482,7 @@ func (c *RedisClient) scan(filter string, dataChannel chan<- DataBatch, scanFn f
 
 		if cursor > 0 {
 			// There are more pages to read, the result will be got using a web-socket.
-			actionStatus = Moved
+			actionStatus = datasource.Moved
 
 			go func() {
 				for cursor != 0 {
@@ -459,7 +499,7 @@ func (c *RedisClient) scan(filter string, dataChannel chan<- DataBatch, scanFn f
 				}
 
 				// End of the stream.
-				dataChannel <- DataBatch{}
+				dataChannel <- datasource.DataBatch{}
 				close(dataChannel)
 				log.Println("Leaving the reading routine")
 			}()
@@ -474,7 +514,7 @@ func (c *RedisClient) identityFormat(values []string) interface{} {
 	return values
 }
 
-func (c *RedisClient) sendValuesToChannel(values interface{}, target chan<- DataBatch) {
+func (c *RedisClient) sendValuesToChannel(values interface{}, target chan<- datasource.DataBatch) {
 	var data []interface{}
 	var stringData []string
 	var ok bool
@@ -499,14 +539,14 @@ func (c *RedisClient) sendValuesToChannel(values interface{}, target chan<- Data
 	}
 
 	if len(data) > 0 {
-		target <- DataBatch{
+		target <- datasource.DataBatch{
 			Size: uint64(len(data)),
 			Data: data,
 		}
 	}
 }
 
-func (c *RedisClient) GetEntryPointInfos(entryPointValue EntryPoint) (EntryPointInfos, error) {
+func (c *RedisClient) GetEntryPointInfos(entryPointValue datasource.EntryPoint) (datasource.EntryPointInfos, error) {
 	key := string(entryPointValue)
 
 	var (
@@ -514,105 +554,94 @@ func (c *RedisClient) GetEntryPointInfos(entryPointValue EntryPoint) (EntryPoint
 		err     error
 	)
 
-	switch client := c.client.(type) {
-	case *redis.ClusterClient:
-		client.ReloadState()
-		loopError := client.ForEachNode(func(client *redis.Client) error {
-			log.Printf("Client: %v\n", client)
-			tmpResult, err := client.Type(key).Result()
-			if err != nil {
-				log.Println("Error", key, tmpResult)
-				return err
-			}
-			log.Println("Type of %s is %s", key, tmpResult)
-			keyType = tmpResult
-			return nil
-		})
-
-		if loopError != nil {
-			err = loopError
-		}
-	default:
-		//keyType, err = c.client.Type(key).Result()
-	}
 	keyType, err = c.client.Type(key).Result()
-	var infos EntryPointInfos
+	var infos datasource.EntryPointInfos
 
 	if err == nil {
-		var result EntryPointType
+		var result datasource.EntryPointType
 		length := uint64(0)
+		timeToLive := time.Duration(-1)
 		t := strings.ToLower(keyType)
 		switch t {
 		case "string":
-			result = Value
+			result = datasource.Value
 			length = uint64(c.client.StrLen(key).Val())
+			timeToLive = c.client.TTL(key).Val()
 		case "set":
-			result = Set
+			result = datasource.Set
 			length = uint64(c.client.SCard(key).Val())
+			timeToLive = c.client.TTL(key).Val()
 		case "zset":
-			result = Set
+			result = datasource.ScoredSet
 			length = uint64(c.client.ZCard(key).Val())
+			timeToLive = c.client.TTL(key).Val()
 		case "list":
-			result = List
+			result = datasource.List
 			length = uint64(c.client.LLen(key).Val())
+			timeToLive = c.client.TTL(key).Val()
 		case "hash":
-			result = Hash
+			result = datasource.Hash
 			length = uint64(c.client.HLen(key).Val())
+			timeToLive = c.client.TTL(key).Val()
 		case "stream":
-			result = Stream
+			result = datasource.Stream
 			length = uint64(c.client.XLen(key).Val())
 		case "none":
 			err = errors.New(fmt.Sprintf("Entrypoint %s was not found", entryPointValue))
 		default:
 			err = errors.New(fmt.Sprintf("Type %s is unsupported", t))
 		}
-		infos = EntryPointInfos{
-			Type:   result,
-			Length: length,
+		infos = datasource.EntryPointInfos{
+			Type:       result,
+			Length:     length,
+			TimeToLive: timeToLive,
 		}
 	}
 
 	return infos, err
 }
 
-func (c *RedisClient) DeleteEntrypoint(entryPointValue EntryPoint) error {
-	return c.client.Unlink(string(entryPointValue)).Err()
+func (c *RedisClient) DeleteEntrypoint(entryPointValue datasource.EntryPoint) error {
+	return c.client.Del(string(entryPointValue)).Err()
 }
 
-func (c *RedisClient) DeleteEntrypointChidren(entryPointValue EntryPoint, errorChannel chan<- error) (ActionStatus, error) {
+func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryPoint, errorChannel chan<- error) (datasource.ActionStatus, error) {
+
 	var (
 		err          error
-		actionStatus ActionStatus
+		actionStatus datasource.ActionStatus
 	)
+	scanFilter := string(entryPointValue) + ":*"
 
 	err = c.client.Ping().Err()
 	if err != nil {
 		return actionStatus, err
 	} else {
-		var cursor uint64
-		var children []string
-		var keys []string
-		var err error
+		go func() {
+			defer close(errorChannel)
 
-		for {
-			keys, cursor, err = c.client.Scan(cursor, string(entryPointValue)+":*", scanSize).Result()
+			_, entrypoints, err := c.scanAllNodes(scanFilter, nil, 0, datasource.MaxLevel)
 			if err != nil {
-				children = append(children, keys...)
-				if cursor == 0 {
-					break
+				log.Printf("ERROR while scanning: %s\n", err.Error())
+				errorChannel <- err
+			} else {
+				var children []string
+				for _, v := range entrypoints {
+					if v.HasContent {
+						children = append(children, string(v.Path))
+					}
 				}
+				c.client.Del(children...)
 			}
-		}
-		c.client.Unlink(children...)
-		close(errorChannel)
+		}()
 	}
-	return Moved, err
+	return datasource.Moved, err
 }
 
-func (c *RedisClient) GetContent(entryPointValue EntryPoint, filter string, content chan<- DataBatch) (ActionStatus, error) {
+func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter string, content chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
 	var (
 		err          error
-		actionStatus ActionStatus
+		actionStatus datasource.ActionStatus
 	)
 
 	key := string(entryPointValue)
@@ -625,12 +654,12 @@ func (c *RedisClient) GetContent(entryPointValue EntryPoint, filter string, cont
 		case "string":
 			value, err := c.getValue(entryPointValue)
 			if err == nil {
-				content <- DataBatch{
+				content <- datasource.DataBatch{
 					Size: 1,
 					Data: []interface{}{value},
 				}
 			}
-			actionStatus = Completed
+			actionStatus = datasource.Completed
 		case "set":
 			return c.getSetValues(entryPointValue, filter, content)
 		case "zset":
@@ -651,25 +680,40 @@ func (c *RedisClient) GetContent(entryPointValue EntryPoint, filter string, cont
 	return actionStatus, err
 }
 
-func (c *RedisClient) getValue(entryPointValue EntryPoint) (SingleValue, error) {
+func (c *RedisClient) getValue(entryPointValue datasource.EntryPoint) (datasource.SingleValue, error) {
 	key := string(entryPointValue)
 	result := c.client.Get(key)
 	return result.Val(), result.Err()
 }
 
-func (c *RedisClient) getSetValues(entryPointValue EntryPoint, filter string, target chan<- DataBatch) (ActionStatus, error) {
+func (c *RedisClient) getSetValues(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
 	return c.scan(filter, target, func(cursor uint64, match string, count int64) *redis.ScanCmd {
 		return c.client.SScan(string(entryPointValue), cursor, match, count)
 	}, c.identityFormat)
 }
 
-func (c *RedisClient) getZSetValues(entryPointValue EntryPoint, filter string, target chan<- DataBatch) (ActionStatus, error) {
+func (c *RedisClient) getZSetValues(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
 	return c.scan(filter, target, func(cursor uint64, match string, count int64) *redis.ScanCmd {
 		return c.client.ZScan(string(entryPointValue), cursor, match, count)
-	}, c.identityFormat)
+	}, func(values []string) interface{} {
+		result := make(map[float64][]string)
+		for i := 0; i < len(values); i = i + 2 {
+			score, err := strconv.ParseFloat(values[i+1], 64)
+			if err == nil {
+				scoredValues, ok := result[score]
+				if ok {
+					scoredValues = append(scoredValues, values[i])
+				} else {
+					scoredValues = []string{values[i]}
+				}
+				result[score] = scoredValues
+			}
+		}
+		return result
+	})
 }
 
-func (c *RedisClient) getListValues(entryPointValue EntryPoint, filter string, target chan<- DataBatch) (ActionStatus, error) {
+func (c *RedisClient) getListValues(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
 	values, err := c.client.LRange(string(entryPointValue), 0, -1).Result()
 	if err == nil {
 		if len(values) > 0 {
@@ -683,22 +727,22 @@ func (c *RedisClient) getListValues(entryPointValue EntryPoint, filter string, t
 					sendableValues = append(sendableValues, value)
 				}
 			}
-			target <- DataBatch{
-				Size: 0,
+			target <- datasource.DataBatch{
+				Size: uint64(len(sendableValues)),
 				Data: sendableValues,
 			}
 		}
 
 		// End of the stream.
-		target <- DataBatch{
+		target <- datasource.DataBatch{
 			Size: 0,
 		}
-		return Completed, nil
+		return datasource.Completed, nil
 	}
-	return None, err
+	return datasource.None, err
 }
 
-func (c *RedisClient) getFullHash(entryPointValue EntryPoint, filter string, target chan<- DataBatch) (ActionStatus, error) {
+func (c *RedisClient) getFullHash(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
 	return c.scan(filter, target, func(cursor uint64, match string, count int64) *redis.ScanCmd {
 		return c.client.HScan(string(entryPointValue), cursor, match, count)
 	}, func(values []string) interface{} {
@@ -710,11 +754,11 @@ func (c *RedisClient) getFullHash(entryPointValue EntryPoint, filter string, tar
 	})
 }
 
-func (c *RedisClient) getStream(entryPointValue EntryPoint, filter string, target chan<- DataBatch) (ActionStatus, error) {
+func (c *RedisClient) getStream(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
 	messages, err := c.client.XRange(string(entryPointValue), "-", "+").Result()
 	if err == nil {
 		if len(messages) > 0 {
-			dataBatch := DataBatch{
+			dataBatch := datasource.DataBatch{
 				Size: uint64(len(target)),
 			}
 			for _, message := range messages {
@@ -723,15 +767,15 @@ func (c *RedisClient) getStream(entryPointValue EntryPoint, filter string, targe
 			target <- dataBatch
 		}
 		// End of the stream.
-		target <- DataBatch{
+		target <- datasource.DataBatch{
 			Size: 0,
 		}
-		return Completed, nil
+		return datasource.Completed, nil
 	}
-	return None, err
+	return datasource.None, err
 }
 
-func (c *RedisClient) Consume(entryPointValue EntryPoint, target chan<- DataBatch, filter Filter, fromBeginning bool) (ActionStatus, error) {
+func (c *RedisClient) Consume(entryPointValue datasource.EntryPoint, target chan<- datasource.DataBatch, filter datasource.Filter, fromBeginning bool) (datasource.ActionStatus, error) {
 
 	panic("Implement me!")
 

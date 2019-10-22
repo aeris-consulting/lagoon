@@ -1,7 +1,8 @@
 .DS_Store
-ui/node_modules
-ui/package-lock.json
-ui/dist
+/ui/node_modules
+/ui/package-lock.json
+/ui/yarn.lock
+/ui/dist
 
 # local env files
 
@@ -23,6 +24,8 @@ yarn-error.log*
 /docker/nohup.out
 /docker/cluster-data/
 
-/src/vendor/*
-!/src/vendor/vendor.json
-pkg
+# Go files
+/src/*
+!/src/lagoon
+/pkg
+/bin

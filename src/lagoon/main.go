@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+
+	_ "lagoon/datasource/redis"
 )
 
 const contextPath = "/lagoon"
@@ -44,13 +46,8 @@ var rootCmd = &cobra.Command{
 			}
 
 			for _, ds := range configuration.Datasources {
-				dsUuid, _ := api.CreateDataSource(&ds)
-				dsInfos := api.DataSourceHeader{
-					Uuid:        dsUuid,
-					Vendor:      ds.Vendor,
-					Name:        ds.Name,
-					Description: ds.Description,
-				}
+				log.Printf("Creating data source %s", ds.Name)
+				dsInfos, _ := api.CreateDataSourceFromDescriptor(ds)
 				api.DataSourcesHeaders = append(api.DataSourcesHeaders, dsInfos)
 			}
 		}
@@ -62,6 +59,7 @@ var rootCmd = &cobra.Command{
 
 		r := setupRouter()
 
+		log.Printf("Starting Lagoon on port %d", configuration.Port)
 		r.Run(":" + strconv.Itoa(configuration.Port))
 	},
 }
@@ -73,19 +71,23 @@ var (
 	}
 
 	configuration struct {
-		Port        int                     `yaml:"port"`
-		Datasources []datasource.DataSource `yaml:"datasources"`
+		Port        int                               `yaml:"port"`
+		Datasources []datasource.DataSourceDescriptor `yaml:"datasources"`
 	}
+
+	debug *bool
 )
 
 func init() {
 	configurationFlags.base64 = rootCmd.PersistentFlags().StringP("base64-configuration", "b", "", "Full YAML configuration as base64 string")
 	configurationFlags.file = rootCmd.PersistentFlags().StringP("configuration-file", "c", "lagoon.yml", "Path of the YAML configuration file")
+	debug = rootCmd.PersistentFlags().BoolP("debug", "d", false, "Start Lagoon in debug mode")
 }
 
 func setupRouter() *gin.Engine {
-	// Disable Console Color
-	// gin.DisableConsoleColor()
+	if !*debug {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.Default()
 	r.RedirectTrailingSlash = true
 	r.RedirectFixedPath = true

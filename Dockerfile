@@ -1,15 +1,18 @@
+# Builder: go-builder
 FROM golang:alpine as go-builder
 
 RUN apk update && apk upgrade && \
-    apk add --no-cache bash git openssh
+    apk add --no-cache bash git openssh gcc alpine-sdk
 
-RUN go get -u github.com/kardianos/govendor
+ENV GOPROXY=https://proxy.golang.org
 
 WORKDIR /go/src/lagoon
-COPY . .
-RUN govendor sync && govendor install
+COPY ./src/lagoon .
+RUN go get -v -t -d ./...
+RUN go build -v ./...
 RUN go install -v ./...
 
+# Builder: node-builder
 FROM node as node-builder
 
 RUN apt-get -y update \
@@ -23,7 +26,7 @@ COPY ./ui .
 RUN yarn install
 RUN yarn build
 
-
+# Final image
 FROM alpine
 RUN apk update && apk upgrade && \
     apk add --no-cache netcat-openbsd bash

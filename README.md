@@ -10,8 +10,9 @@ cd ui && yarn
 
 ### Backend
 ```
-go get -u github.com/kardianos/govendor
-govendor install
+export GOPATH=$(pwd)
+cd src/lagoon
+go get -v -t -d ./...
 ```
 
 ## Run for development
@@ -23,20 +24,22 @@ cd docker && ./start_redis_single.sh
 
 ### UI part (Compiles and hot-reloads)
 ```
-
 cd ui && yarn serve
 ```
 
 ### Backend
 ```
-go build main.go
+export GOPATH=$(pwd)
+cd src/lagoon
+go build ./...
+go run main.go
 ```
 
 Optionally, you can pass configuration in different way. Using a base64 string or a path to a configuration file.
 
 For base64 configuration, pass it like:
 ```
-go build main.go -b=cG9ydDogMjAwMAoKZGF0YXNvdXJjZXM6Ci0gdXVpZDogYjk3MzYyMjQtMWFiMy00OWQ4LWE1OWQtZWYyNWFlNzA5NDg3CiAgdmVuZG9yOiByZWRpcwogIG5hbWU6IFJlZGlzIC0gQ2x1c3RlcgogIGJvb3RzdHJhcDogY2x1c3RlcjovLzEyNy4wLjAuMToxMzAwMSwxMjcuMC4wLjE6MTMwMDIsMTI3LjAuMC4xOjEzMDAzLDEyNy4wLjAuMToxMzAwNCwxMjcuMC4wLjE6MTMwMDUsMTI3LjAuMC4xOjEzMDA2CiAgY29uZmlndXJhdGlvbjoKICAgIHJlYWRUaW1lb3V0OiAzMAogICAgd3JpdGVUaW1lb3V0OiAzMAogICAgbWF4Q29ubkFnZTogMzAKICAgIG1pbklkbGVDb25uczogMTAKLSB1dWlkOiA2YTRhYmRkOS0zNWJlLTRkNGEtYWU0Ni0xZjFjNzBhN2FkMjYKICB2ZW5kb3I6IHJlZGlzCiAgbmFtZTogUmVkaXMgLSBTaW5nbGUKICBib290c3RyYXA6IHJlZGlzOi8vbG9jYWxob3N0OjYzNzkKICAgIAogICAg
+go run main.go -b=cG9ydDogMjAwMAoKZGF0YXNvdXJjZXM6Ci0gdXVpZDogYjk3MzYyMjQtMWFiMy00OWQ4LWE1OWQtZWYyNWFlNzA5NDg3CiAgdmVuZG9yOiByZWRpcwogIG5hbWU6IFJlZGlzIC0gQ2x1c3RlcgogIGJvb3RzdHJhcDogY2x1c3RlcjovLzEyNy4wLjAuMToxMzAwMSwxMjcuMC4wLjE6MTMwMDIsMTI3LjAuMC4xOjEzMDAzLDEyNy4wLjAuMToxMzAwNCwxMjcuMC4wLjE6MTMwMDUsMTI3LjAuMC4xOjEzMDA2CiAgY29uZmlndXJhdGlvbjoKICAgIHJlYWRUaW1lb3V0OiAzMAogICAgd3JpdGVUaW1lb3V0OiAzMAogICAgbWF4Q29ubkFnZTogMzAKICAgIG1pbklkbGVDb25uczogMTAKLSB1dWlkOiA2YTRhYmRkOS0zNWJlLTRkNGEtYWU0Ni0xZjFjNzBhN2FkMjYKICB2ZW5kb3I6IHJlZGlzCiAgbmFtZTogUmVkaXMgLSBTaW5nbGUKICBib290c3RyYXA6IHJlZGlzOi8vbG9jYWxob3N0OjYzNzkKICAgIAogICAg
 ```
 
 This is equivalent to the following configuration:
@@ -82,7 +85,7 @@ cd ui && yarn build
 go install -v ./...
 ```
 
-### Docker image (Build UI first)
+### Docker image (No need to build anything first)
 ```
 docker build . -t aerisconsulting/lagoon --no-cache && docker push aerisconsulting/lagoon
 ```
