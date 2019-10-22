@@ -2,3 +2,5 @@
 .github
 ui/node_modules
 docker
+pkg
+bin
