@@ -161,20 +161,36 @@ export default class DataSource {
             });
     }
 
-    deleteEntrypointChildren(node) {
+    deleteEntrypointChildren(node, component) {
         let fullName = node.getFullName();
+        let self = this;
 
         axios.delete(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName + '/children', {format: 'json'})
             .then(response => {
                 if (response.status === 202) {
                     let socket = new WebSocket(this.wsRoot + response.data.link);
                     socket.onopen = () => {
-                        socket.onmessage = () => {
-                            setTimeout(() => {
-                                node.parent.component.refresh();
-                                this.unselectNode(node);
-                            });
+                        socket.onmessage = ({data}) => {
+                            self.addError(JSON.parse(data));
                         };
+                    };
+                    socket.onclose = () => {
+                        setTimeout(() => {
+                            this.unselectNode(node);
+                            component.loading = false;
+
+                            let parent = node.parent;
+                            if (parent.component == null) {
+                                // A root was deleted.
+                                component.$destroy();
+                                component.$el.parentNode.removeChild(component.$el);
+                            } else {
+                                while (parent != null && parent.component != null) {
+                                    parent.component.refresh();
+                                    parent = parent.parent;
+                                }
+                            }
+                        });
                     };
                 }
             })

@@ -20,9 +20,7 @@ yarn-error.log*
 *.sln
 *.sw?
 /package-lock.json
-/docker/data/
-/docker/nohup.out
-/docker/cluster-data/
+/docker/*
 
 # Go files
 /src/*
