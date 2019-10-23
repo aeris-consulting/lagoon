@@ -58,7 +58,7 @@ type DataSourceDescriptor struct {
 type EntryPoint string
 
 type EntryPointNode struct {
-	Path       EntryPoint `json:"-"`
+	Path       EntryPoint `json:"path" binding:"required"`
 	HasContent bool       `json:"hasContent" binding:"required"`
 	Length     uint64     `json:"length" binding:"required"`
 }

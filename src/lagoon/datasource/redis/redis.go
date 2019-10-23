@@ -620,22 +620,67 @@ func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryP
 		go func() {
 			defer close(errorChannel)
 
-			_, entrypoints, err := c.scanAllNodes(scanFilter, nil, 0, datasource.MaxLevel)
-			if err != nil {
-				log.Printf("ERROR while scanning: %s\n", err.Error())
-				errorChannel <- err
-			} else {
-				var children []string
-				for _, v := range entrypoints {
-					if v.HasContent {
-						children = append(children, string(v.Path))
+			switch client := c.client.(type) {
+			case *redis.ClusterClient:
+				loopError := client.ForEachNode(func(client *redis.Client) error {
+					roleResult, err := client.Do("ROLE").Result()
+					if err == nil {
+						role := (roleResult.([]interface{})[0]).(string)
+						keyCount := int64(0)
+						if "master" == strings.ToLower(role) {
+							count, err := c.scanAndDeleteOneNode(client, scanFilter)
+							keyCount = keyCount + count
+							log.Printf("%d keys deleted on %v\n", keyCount, roleResult)
+							return err
+						}
 					}
+					return err
+				})
+
+				if loopError != nil {
+					errorChannel <- loopError
 				}
-				c.client.Del(children...)
+			default:
+				keyCount, err := c.scanAndDeleteOneNode(c.client, scanFilter)
+				log.Printf("%d keys deleted\n", keyCount)
+
+				if err != nil {
+					errorChannel <- err
+				}
+			}
+			if err != nil {
+				log.Printf("Error while deleting keys: %s\n", err.Error())
 			}
 		}()
 	}
 	return datasource.Moved, err
+}
+
+func (c *RedisClient) scanAndDeleteOneNode(redisClient redis.Cmdable, scanFilter string) (int64, error) {
+	var (
+		cursor          uint64
+		keys            []string
+		err             error
+		deletedKeyCount int64
+	)
+
+	for err == nil {
+		keys, cursor, err = redisClient.Scan(cursor, scanFilter, scanSize).Result()
+		if err == nil && len(keys) > 0 {
+			// FIXME Even by deleting data scanned on the node, deleting raises the issue: CROSSSLOT Keys in request don't hash to the same slot.
+			for _, key := range keys {
+				deleted, err := redisClient.Unlink(key).Result()
+				deletedKeyCount = deletedKeyCount + deleted
+				if err != nil {
+					return deletedKeyCount, err
+				}
+			}
+		}
+		if cursor == 0 {
+			break
+		}
+	}
+	return deletedKeyCount, err
 }
 
 func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter string, content chan<- datasource.DataBatch) (datasource.ActionStatus, error) {

@@ -1,36 +1,41 @@
 <template>
     <li v-bind:class="{ 'loading': loading}">
-        <font-awesome-icon @click="toggleOpen()" class="icon-left" icon="angle-right"
-                           v-if="node.hasChildren() && !open"/>
-        <font-awesome-icon @click="toggleOpen()" class="icon-left" icon="angle-down" v-if="node.hasChildren() && open"/>
-        <span @click="display()" class="name" v-bind:class="{ 'content': node.hasContent }">{{ node.name }}</span>
-        <span class="childrenLength"
-              v-if="node.hasChildren()">({{ node.length ? node.length : node.children.length }})
-            <!-- <v-btn icon @click="add()" x-small>
-              <font-awesome-icon icon="plus"/>
-            </v-btn> -->
-            <v-btn
-                    @click="refresh()" icon x-small
-                    v-if="node.hasChildren() && open">
-              <font-awesome-icon icon="sync"/>
-            </v-btn>
-            <v-btn icon @click="copyChildrenList()" x-small
-                v-if="node.hasChildren() && open">
-              <font-awesome-icon icon="copy"/>
-            </v-btn>
-            <!-- <v-btn icon @click="deleteChildren()" x-small
-                v-if="!dataSource.readonly">
-              <font-awesome-icon icon="trash"/>
-            </v-btn> -->
-        </span>
-        <span>
-            <v-progress-circular
-                v-if="loading"
-                indeterminate
-                :size="10"
-                :width="2"
-                color="primary"
-            ></v-progress-circular>
+        <span class="entry-point">
+            <font-awesome-icon @click="toggleOpen()" class="icon-left" icon="angle-right"
+                               v-if="node.hasChildren() && !open"/>
+            <font-awesome-icon @click="toggleOpen()" class="icon-left" icon="angle-down"
+                               v-if="node.hasChildren() && open"/>
+            <span @click="display()" class="name" v-bind:class="{ 'content': node.hasContent }">{{ node.name }}</span>
+            <span class="info-bar"
+                  v-if="node.hasChildren()">({{ node.length ? node.length : node.children.length }})
+                <span>
+                    <v-progress-circular
+                            :size="10"
+                            :width="2"
+                            color="primary"
+                            indeterminate
+                            v-if="loading"
+                    ></v-progress-circular>
+                </span>
+                <span class="button-bar">
+                    <!-- <v-btn icon @click="add()" x-small>
+                      <font-awesome-icon icon="plus"/>
+                    </v-btn> -->
+                    <v-btn
+                            @click="refresh()" icon v-if="node.hasChildren() && open"
+                            x-small>
+                      <font-awesome-icon icon="sync"/>
+                    </v-btn>
+                    <v-btn @click="copyChildrenList()" icon v-if="node.hasChildren() && open"
+                           x-small>
+                      <font-awesome-icon icon="copy"/>
+                    </v-btn>
+                    <v-btn @click="deleteChildren()" icon v-if="!dataSource.readonly"
+                           x-small>
+                      <font-awesome-icon icon="trash"/>
+                    </v-btn>
+                </span>
+            </span>
         </span>
     </li>
 </template>
@@ -119,16 +124,15 @@
             },
 
             deleteChildren: function () {
-                EventBus.$emit('display-snakebar', {
-                    message: 'Not yet implemented'
-                });
-                /*this.$emit('display-modal', {
+                let self = this;
+                this.$emit('display-modal', {
                     message: 'Are you sure you want to delete all the children?',
                     yesHandler: () => {
-                        this.dataSource.deleteEntrypointChildren(this.node);
+                        self.loading = true;
+                        this.dataSource.deleteEntrypointChildren(self.node, self);
                     }, noHandler: () => {
                     }
-                });*/
+                });
             },
 
             close: function () {
@@ -205,9 +209,19 @@
         }
     }
 
-    .childrenLength {
+    .info-bar {
+        margin-left: 0px;
+        margin-right: 0px;
+    }
+
+    .button-bar {
         margin-left: 0px;
         margin-right: 5px;
+        visibility: hidden;
+    }
+
+    .entry-point:hover .button-bar {
+        visibility: visible;
     }
 
     li.loading {

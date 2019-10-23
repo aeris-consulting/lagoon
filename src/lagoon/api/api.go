@@ -226,6 +226,8 @@ func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
 		return
 	}
 
+	defer conn.Close()
+
 	log.Printf("Reading channel data for %s\n", wsUuid)
 	if dataChannel != nil {
 		for data := range dataChannel {
@@ -241,12 +243,13 @@ func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
 
 	if errorChannel != nil {
 		for error := range errorChannel {
-			// Write messages of the channel
+			// Write errors of the channel
 			json, err := json.Marshal(error.Error())
 			if err == nil {
 				err = conn.WriteMessage(websocket.TextMessage, json)
 			}
 		}
 	}
+
 	log.Printf("Stop reading channel data for %s\n", wsUuid)
 }
