@@ -346,7 +346,8 @@ func (c *RedisClient) scanAllNodes(scanFilter string, regexFilter *regexp2.Regex
 			if err == nil {
 				role := (roleResult.([]interface{})[0]).(string)
 				if "master" == strings.ToLower(role) {
-					log.Printf("Scanning keys on %+v\n", roleResult)
+					id := node.Do("CLUSTER", "MYID").Val()
+					log.Printf("Scanning keys on master node %+v\n", id)
 					count, err := c.scanOneNode(node, client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
 					scannedKeyCount = scannedKeyCount + count
 					return err
