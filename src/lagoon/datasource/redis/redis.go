@@ -341,13 +341,13 @@ func (c *RedisClient) scanAllNodes(scanFilter string, regexFilter *regexp2.Regex
 	switch client := c.client.(type) {
 	case *redis.ClusterClient:
 		mutex := sync.Mutex{}
-		loopError := client.ForEachNode(func(client *redis.Client) error {
-			roleResult, err := client.Do("ROLE").Result()
+		loopError := client.ForEachNode(func(node *redis.Client) error {
+			roleResult, err := node.Do("ROLE").Result()
 			if err == nil {
 				role := (roleResult.([]interface{})[0]).(string)
 				if "master" == strings.ToLower(role) {
-					log.Printf("Scanning keys on %v\n", roleResult)
-					count, err := c.scanOneNode(client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
+					log.Printf("Scanning keys on %+v\n", roleResult)
+					count, err := c.scanOneNode(node, client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
 					scannedKeyCount = scannedKeyCount + count
 					return err
 				}
@@ -359,12 +359,12 @@ func (c *RedisClient) scanAllNodes(scanFilter string, regexFilter *regexp2.Regex
 			err = loopError
 		}
 	default:
-		scannedKeyCount, err = c.scanOneNode(c.client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() {}, func() {})
+		scannedKeyCount, err = c.scanOneNode(c.client, nil, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() {}, func() {})
 	}
 	return scannedKeyCount, entrypoints, err
 }
 
-func (c *RedisClient) scanOneNode(redisClient redis.Cmdable, scanFilter string, regexFilter *regexp2.Regexp, minTreeLevel uint, maxTreeLevel uint, entrypoints map[string]*datasource.EntryPointNode, acquireMutex func(), releaseMutex func()) (int, error) {
+func (c *RedisClient) scanOneNode(scanningRedisClient redis.Cmdable, clusterRedisClient redis.Cmdable, scanFilter string, regexFilter *regexp2.Regexp, minTreeLevel uint, maxTreeLevel uint, entrypoints map[string]*datasource.EntryPointNode, acquireMutex func(), releaseMutex func()) (int, error) {
 	var (
 		cursor          uint64
 		keys            []string
@@ -377,7 +377,7 @@ func (c *RedisClient) scanOneNode(redisClient redis.Cmdable, scanFilter string, 
 	excludedKeys := make(map[string]bool)
 
 	for err == nil {
-		keys, cursor, err = redisClient.Scan(cursor, scanFilter, scanSize).Result()
+		keys, cursor, err = scanningRedisClient.Scan(cursor, scanFilter, scanSize).Result()
 		if err == nil {
 			scannedKeyCount = scannedKeyCount + len(keys)
 			for _, key := range keys {
@@ -385,6 +385,15 @@ func (c *RedisClient) scanOneNode(redisClient redis.Cmdable, scanFilter string, 
 					excludedKeys[key] = true
 					continue
 				}
+
+				if clusterRedisClient != nil {
+					// If the node belongs to a cluster, we validate the key exists and ignore it otherwise.
+					nodeType, err := clusterRedisClient.Type(key).Result()
+					if "none" == strings.ToLower(nodeType) || err != nil {
+						continue
+					}
+				}
+
 				tokens = strings.Split(key, ":")
 				if uint(len(tokens)) > minTreeLevel {
 					entrypoint = ""
@@ -620,67 +629,47 @@ func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryP
 		go func() {
 			defer close(errorChannel)
 
+			_, entrypoints, err := c.scanAllNodes(scanFilter, nil, 0, datasource.MaxLevel)
+			if err != nil {
+				errorChannel <- err
+			}
+			// Exclude the parent endpoint which should have been added.
+			delete(entrypoints, string(entryPointValue))
+
+			total := int64(0)
+			keys := []string{}
+			for k, v := range entrypoints {
+				if v.HasContent {
+					keys = append(keys, k)
+				}
+			}
+			log.Printf("%d entries have to be deleted\n", len(keys))
+
 			switch client := c.client.(type) {
 			case *redis.ClusterClient:
-				loopError := client.ForEachNode(func(client *redis.Client) error {
-					roleResult, err := client.Do("ROLE").Result()
-					if err == nil {
-						role := (roleResult.([]interface{})[0]).(string)
-						keyCount := int64(0)
-						if "master" == strings.ToLower(role) {
-							count, err := c.scanAndDeleteOneNode(client, scanFilter)
-							keyCount = keyCount + count
-							log.Printf("%d keys deleted on %v\n", keyCount, roleResult)
-							return err
-						}
+				// On a cluster, keys have to be deleted one by one, or by groups only if all the elements of the group belongs to the same slot.
+				for _, k := range keys {
+					log.Printf("Deleting %s...\n", k)
+					count, err := client.Del(k).Result()
+					total = total + count
+					if err != nil {
+						log.Printf("ERROR while deleting %s: %s\n", k, err.Error())
+						errorChannel <- err
+					} else if count > 1 && total%scanSize == 0 {
+						log.Printf("%d entries were deleted so far\n", total)
 					}
-					return err
-				})
-
-				if loopError != nil {
-					errorChannel <- loopError
 				}
 			default:
-				keyCount, err := c.scanAndDeleteOneNode(c.client, scanFilter)
-				log.Printf("%d keys deleted\n", keyCount)
-
+				total, err = client.Del(keys...).Result()
 				if err != nil {
+					log.Printf("ERROR while deleting keys %s: %s\n", scanFilter, err.Error())
 					errorChannel <- err
 				}
 			}
-			if err != nil {
-				log.Printf("Error while deleting keys: %s\n", err.Error())
-			}
+			log.Printf("A total of %d entries were deleted\n", total)
 		}()
 	}
 	return datasource.Moved, err
-}
-
-func (c *RedisClient) scanAndDeleteOneNode(redisClient redis.Cmdable, scanFilter string) (int64, error) {
-	var (
-		cursor          uint64
-		keys            []string
-		err             error
-		deletedKeyCount int64
-	)
-
-	for err == nil {
-		keys, cursor, err = redisClient.Scan(cursor, scanFilter, scanSize).Result()
-		if err == nil && len(keys) > 0 {
-			// FIXME Even by deleting data scanned on the node, deleting raises the issue: CROSSSLOT Keys in request don't hash to the same slot.
-			for _, key := range keys {
-				deleted, err := redisClient.Unlink(key).Result()
-				deletedKeyCount = deletedKeyCount + deleted
-				if err != nil {
-					return deletedKeyCount, err
-				}
-			}
-		}
-		if cursor == 0 {
-			break
-		}
-	}
-	return deletedKeyCount, err
 }
 
 func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter string, content chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
