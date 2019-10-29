@@ -348,7 +348,7 @@ func (c *RedisClient) scanAllNodes(scanFilter string, regexFilter *regexp2.Regex
 				if "master" == strings.ToLower(role) {
 					id := node.Do("CLUSTER", "MYID").Val()
 					log.Printf("Scanning keys on master node %+v\n", id)
-					count, err := c.scanOneNode(node, client, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
+					count, err := c.scanOneNode(node, false, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
 					scannedKeyCount = scannedKeyCount + count
 					return err
 				}
@@ -360,12 +360,12 @@ func (c *RedisClient) scanAllNodes(scanFilter string, regexFilter *regexp2.Regex
 			err = loopError
 		}
 	default:
-		scannedKeyCount, err = c.scanOneNode(c.client, nil, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() {}, func() {})
+		scannedKeyCount, err = c.scanOneNode(c.client, false, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() {}, func() {})
 	}
 	return scannedKeyCount, entrypoints, err
 }
 
-func (c *RedisClient) scanOneNode(scanningRedisClient redis.Cmdable, clusterRedisClient redis.Cmdable, scanFilter string, regexFilter *regexp2.Regexp, minTreeLevel uint, maxTreeLevel uint, entrypoints map[string]*datasource.EntryPointNode, acquireMutex func(), releaseMutex func()) (int, error) {
+func (c *RedisClient) scanOneNode(scanningRedisClient redis.Cmdable, validateOwnership bool, scanFilter string, regexFilter *regexp2.Regexp, minTreeLevel uint, maxTreeLevel uint, entrypoints map[string]*datasource.EntryPointNode, acquireMutex func(), releaseMutex func()) (int, error) {
 	var (
 		cursor          uint64
 		keys            []string
@@ -387,9 +387,9 @@ func (c *RedisClient) scanOneNode(scanningRedisClient redis.Cmdable, clusterRedi
 					continue
 				}
 
-				if clusterRedisClient != nil {
+				if validateOwnership {
 					// If the node belongs to a cluster, we validate the key exists and ignore it otherwise.
-					nodeType, err := clusterRedisClient.Type(key).Result()
+					nodeType, err := scanningRedisClient.Type(key).Result()
 					if "none" == strings.ToLower(nodeType) || err != nil {
 						continue
 					}
