@@ -19,6 +19,7 @@
     "collections": "^5.1.9",
     "core-js": "^2.6.5",
     "font-awesome": "^4.7.0",
+    "humanize-duration": "^3.21.0",
     "jquery.terminal": "^2.8.0",
     "lodash": "^4.17.15",
     "scss": "^0.2.4",

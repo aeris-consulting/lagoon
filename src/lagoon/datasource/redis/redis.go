@@ -576,23 +576,23 @@ func (c *RedisClient) GetEntryPointInfos(entryPointValue datasource.EntryPoint) 
 		case "string":
 			result = datasource.Value
 			length = uint64(c.client.StrLen(key).Val())
-			timeToLive = c.client.TTL(key).Val()
+			timeToLive = c.client.PTTL(key).Val()
 		case "set":
 			result = datasource.Set
 			length = uint64(c.client.SCard(key).Val())
-			timeToLive = c.client.TTL(key).Val()
+			timeToLive = c.client.PTTL(key).Val()
 		case "zset":
 			result = datasource.ScoredSet
 			length = uint64(c.client.ZCard(key).Val())
-			timeToLive = c.client.TTL(key).Val()
+			timeToLive = c.client.PTTL(key).Val()
 		case "list":
 			result = datasource.List
 			length = uint64(c.client.LLen(key).Val())
-			timeToLive = c.client.TTL(key).Val()
+			timeToLive = c.client.PTTL(key).Val()
 		case "hash":
 			result = datasource.Hash
 			length = uint64(c.client.HLen(key).Val())
-			timeToLive = c.client.TTL(key).Val()
+			timeToLive = c.client.PTTL(key).Val()
 		case "stream":
 			result = datasource.Stream
 			length = uint64(c.client.XLen(key).Val())

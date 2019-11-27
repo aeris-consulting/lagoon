@@ -12,6 +12,18 @@
                     <font-awesome-icon icon="stop"/>
                 </v-btn>
                 <input type="number" class="frequency-input" v-model="observationFrequency"/> seconds
+                <v-chip
+                        class="mr-2">
+                    <v-tooltip bottom>
+                        <template v-slot:activator="{ on }">
+                            <v-icon left v-on="on">mdi-clock</v-icon>
+                        </template>
+                        <span>Last refresh time</span>
+                    </v-tooltip>
+                    <template v-if="lastRefresh">
+                        {{ lastRefresh.toISOString() }}
+                    </template>
+                </v-chip>
             </v-col>
             <v-col cols="4">
                 <v-row justify="end">
@@ -37,7 +49,7 @@
         <template v-else>
             <div class="entrypoint-content-panel">
                 <v-row>
-                    <v-col cols="12">
+                    <v-col cols="6">
                         <v-chip
                                 @click="copyKey"
                                 class="mr-2">
@@ -50,21 +62,7 @@
                             {{ node.getFullName() }}
                         </v-chip>
                     </v-col>
-                </v-row>
-                <v-row>
-                    <v-col cols="12">
-                        <v-chip
-                                class="mr-2">
-                            <v-tooltip bottom>
-                                <template v-slot:activator="{ on }">
-                                    <v-icon left v-on="on">mdi-clock</v-icon>
-                                </template>
-                                <span>Last refresh time</span>
-                            </v-tooltip>
-                            <template v-if="lastRefresh">
-                                {{ lastRefresh.toISOString() }}
-                            </template>
-                        </v-chip>
+                    <v-col cols="6" style="text-align: right">
                         <template v-if="node.info">
                             <v-chip
                                     class="mr-2">
@@ -86,6 +84,18 @@
                                 </v-tooltip>
                                 {{ node.info.length }}
                             </v-chip>
+                            <template v-if="timeToLive">
+                                <v-chip
+                                        class="mr-2">
+                                    <v-tooltip bottom>
+                                        <template v-slot:activator="{ on }">
+                                            <v-icon left v-on="on">mdi-timer-sand</v-icon>
+                                        </template>
+                                        <span>Time to live</span>
+                                    </v-tooltip>
+                                    {{ timeToLive }}
+                                </v-chip>
+                            </template>
                         </template>
                     </v-col>
                 </v-row>
@@ -116,6 +126,8 @@
 <script>
     import EventBus from '../eventBus';
     import JsonHelper from '../helpers/jsonHelper';
+
+    const humanizeDuration = require('humanize-duration');
 
     export default {
         name: 'EntrypointContent',
@@ -193,6 +205,15 @@
                         message: 'The key could not be copied to your clipboard'
                     });
                 })
+            },
+        },
+
+        computed: {
+            timeToLive: function () {
+                if (this.node.info.timeToLive && this.node.info.timeToLive > 0) {
+                    return humanizeDuration(this.node.info.timeToLive, {units: ['y', 'mo', 'd', 'h', 'm', 's', 'ms']})
+                }
+                return null
             }
         },
 

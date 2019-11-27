@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type DataSourceHeader struct {
@@ -130,7 +131,7 @@ func GetEntryPointInfos(c *gin.Context) {
 		entrypoint := datasource.EntryPoint(c.Params.ByName("entrypoint"))
 		infos, err := ds.GetEntryPointInfos(entrypoint)
 		if err == nil {
-			c.JSON(http.StatusOK, gin.H{"type": datasource.EntryPointTypesAsString[infos.Type], "length": infos.Length})
+			c.JSON(http.StatusOK, gin.H{"type": datasource.EntryPointTypesAsString[infos.Type], "length": infos.Length, "timeToLive": infos.TimeToLive / time.Millisecond})
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
