@@ -816,7 +816,7 @@ func (c *RedisClient) Consume(entryPointValue datasource.EntryPoint, target chan
 
 	/*
 		streamCmd := c.datasource.XReadStreams(string(entryPointValue))
-		c.datasource.XReadGroup()
+		c.datasource.XRead()
 		var status ActionStatus
 		err := streamCmd.Err()
 		if err == nil {
@@ -828,4 +828,33 @@ func (c *RedisClient) Consume(entryPointValue datasource.EntryPoint, target chan
 		}
 		return status, err
 	*/
+}
+
+func (c *RedisClient) ExecuteCommand(args []interface{}, nodeID string) (interface{}, error) {
+	cmd := redis.NewCmd(args...)
+	c.processCmd(cmd, nodeID)
+	return cmd.Result()
+}
+
+func (c *RedisClient) processCmd(cmd redis.Cmder, nodeID string) {
+	switch v := c.client.(type) {
+	case *redis.Client:
+		v.Process(cmd)
+	case *redis.ClusterClient:
+		if nodeID == "" {
+			v.Process(cmd)
+		} else {
+			v.ForEachNode(func(client *redis.Client) error {
+				myIDResult, err := client.Do("CLUSTER", "MYID").Result()
+				if err == nil {
+					myID := (myIDResult).(string)
+					if myID == nodeID {
+						client.Process(cmd)
+						return err
+					}
+				}
+				return err
+			})
+		}
+	}
 }

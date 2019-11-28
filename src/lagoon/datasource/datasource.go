@@ -142,6 +142,9 @@ type DataSource interface {
 	// OpenStream consumes a stream or topic and add the accepted values to the channel.
 	Consume(entryPointValue EntryPoint, values chan<- DataBatch, filter Filter, fromBeginning bool) (ActionStatus, error)
 
+	// ExecuteCommand executes a native command and returns the result.
+	ExecuteCommand(args []interface{}, nodeID string) (interface{}, error)
+
 	// GetInfos provides essential information about the data source.
 	GetInfos() (interface{}, error)
 

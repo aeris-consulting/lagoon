@@ -19,6 +19,7 @@
     "collections": "^5.1.9",
     "core-js": "^2.6.5",
     "font-awesome": "^4.7.0",
+    "jquery.terminal": "^2.8.0",
     "lodash": "^4.17.15",
     "scss": "^0.2.4",
     "socket.io": "^2.2.0",
@@ -41,6 +42,7 @@
     "babel-eslint": "^10.0.1",
     "babel-jest": "^24.9.0",
     "bootstrap": "^4.3.1",
+    "cross-env": "^6.0.0",
     "deepmerge": "^4.0.0",
     "eslint": "^5.16.0",
     "eslint-plugin-vue": "^5.0.0",
@@ -52,8 +54,7 @@
     "sass": "^1.22.10",
     "sass-loader": "^7.3.1",
     "style-loader": "^1.0.0",
-    "vue-template-compiler": "^2.6.10",
-    "cross-env": "^6.0.0"
+    "vue-template-compiler": "^2.6.10"
   },
   "eslintConfig": {
     "root": true,

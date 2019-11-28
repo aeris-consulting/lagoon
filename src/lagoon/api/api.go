@@ -19,6 +19,11 @@ type DataSourceHeader struct {
 	Description string                    `json:"description"`
 }
 
+type CommandRequest struct {
+	Args   []interface{} `json:"args" binding:"required`
+	NodeID string        `json:"nodeId"`
+}
+
 var DataSourcesHeaders []DataSourceHeader
 
 var dataSources = make(map[datasource.DataSourceUuid]datasource.DataSource)
@@ -252,4 +257,19 @@ func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
 	}
 
 	log.Printf("Stop reading channel data for %s\n", wsUuid)
+}
+
+func ExecuteCommand(c *gin.Context) {
+	var commandRequest CommandRequest
+	if c.Bind(&commandRequest) == nil {
+		ds, ok := findDataSource(c)
+		if ok {
+			message, err := ds.ExecuteCommand(commandRequest.Args, commandRequest.NodeID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusOK, gin.H{"data": message})
+			}
+		}
+	}
 }
