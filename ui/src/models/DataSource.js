@@ -68,17 +68,33 @@ export default class DataSource {
                     socket.onopen = () => {
                         socket.onmessage = ({data}) => {
                             let jsonData = JSON.parse(data);
-                            if (jsonData.size) {
+                            if (jsonData.size > 0) {
                                 receivedValues = receivedValues.concat(jsonData.data);
                             } else {
                                 setTimeout(() => {
-                                    socket.close();
+                                    // eslint-disable-next-line
+                                    console.log("Closing the websocket");
+                                    socket.close(1000, "End of data");
                                     socket = null;
                                     // eslint-disable-next-line
                                     console.log("Count of received values: %d", receivedValues.length);
                                     completeAction(receivedValues);
                                 }, 0);
                             }
+                        };
+                        socket.onclose = () => {
+                            setTimeout(() => {
+                                // eslint-disable-next-line
+                                console.log("The websocket is closed");
+                                socket = null;
+                            }, 0);
+                        };
+                        socket.onerror = (e) => {
+                            // eslint-disable-next-line
+                            console.log("The websocket got an error: ", e);
+                            socket.close(1006, "Received error");
+                            socket = null;
+                            completeAction([]);
                         };
                     };
                 }

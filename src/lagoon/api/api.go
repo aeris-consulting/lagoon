@@ -231,10 +231,15 @@ func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
 		log.Printf("Failed to set websocket upgrade: %v\n", err)
 		return
 	}
+	conn.SetCloseHandler(func(code int, text string) error {
+		log.Printf("Websocket %v closed with code %v and reason %v\n", wsUuid, code, text)
+		return nil
+	})
 
 	defer func() {
 		go func() {
-			time.Sleep(5 * time.Second)
+			time.Sleep(30 * time.Second)
+			log.Printf("Websocket %v expired\n", wsUuid)
 			conn.Close()
 		}()
 	}()
