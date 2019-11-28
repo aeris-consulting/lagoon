@@ -86,7 +86,10 @@ export default class DataSource {
                             setTimeout(() => {
                                 // eslint-disable-next-line
                                 console.log("The websocket is closed");
-                                socket = null;
+                                if (socket != null) {
+                                    socket = null;
+                                    completeAction(receivedValues);
+                                }
                             }, 0);
                         };
                         socket.onerror = (e) => {
