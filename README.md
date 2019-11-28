@@ -87,7 +87,7 @@ go install -v ./...
 
 ### Docker image (No need to build anything first)
 ```
-docker build . -t aerisconsulting/lagoon --no-cache && docker push aerisconsulting/lagoon
+docker build . -t aerisconsulting/lagoon && docker push aerisconsulting/lagoon
 ```
 
 ## UI Misc
@@ -109,10 +109,8 @@ See [Configuration Reference](https://cli.vuejs.org/config/).
 1. Document the API
 1. Edit a content
 1. Add a root or child entrypoint (manage the type of entry point to be managed as properties from the datasource)
-1. Visualize content as formatted and pretty-printed JSON / YAML
 1. Manage multitab, pining tabs (close all and close unpins) to display content
 1. Add a filter for the content (useful for long sets)
-1. Copy visible content to the clipboard
 1. Support Kafka and streams
 1. Manage templates with placeholders to create content
 1. Extend basic features: 
@@ -124,14 +122,6 @@ entrypoints and find the ones matching a simple query, like: `SET(my-key:*) HAVI
 
 
 ## Resources
-* Web
-  * https://gin-gonic.com/docs/examples/
-  * http://arlimus.github.io/articles/gin.and.gorilla/
-  * https://gin-gonic.com/docs/examples/graceful-restart-or-stop/
-* Backend
-  * https://github.com/kardianos/govendor
-  * https://gin-gonic.com/docs/examples/
-  * https://github.com/nathantsoi/vue-native-websocket
 * Redis
   * https://github.com/go-redis/redis/blob/master/example_test.go
   * https://godoc.org/github.com/go-redis/redis

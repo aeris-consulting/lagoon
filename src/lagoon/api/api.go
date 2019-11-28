@@ -232,7 +232,12 @@ func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
 		return
 	}
 
-	defer conn.Close()
+	defer func() {
+		go func() {
+			time.Sleep(5 * time.Second)
+			conn.Close()
+		}()
+	}()
 
 	log.Printf("Reading channel data for %s\n", wsUuid)
 	if dataChannel != nil {
