@@ -6,12 +6,18 @@
                 <v-toolbar-title class="app-logo" @click="refresh">Lagoon</v-toolbar-title>
                 <div class="flex-grow-1"></div>
                 <v-btn icon
-                    @click="toGithub">
+                       @click="openTerminal"
+                       v-if="showTerminalButton">
+                    <font-awesome-icon :icon="['fa', 'terminal']"/>
+                </v-btn>
+                <v-btn icon
+                       @click="toGithub">
                     <font-awesome-icon :icon="['fab', 'github']" size="2x"/>
                 </v-btn>
             </v-app-bar>
             <div id="content">
-                <data-source 
+                <data-source
+                        ref="dataSource"
                     @display-modal="showConfirmation">
                 </data-source>
             </div>
@@ -48,7 +54,8 @@
         data() {
             return {
                 showSnackbar: false,
-                snakebarText: ''
+                snakebarText: '',
+                showTerminalButton: false
             }
         },
 
@@ -87,6 +94,10 @@
                 });
             },
 
+            openTerminal: function () {
+                EventBus.$emit('open-terminal');
+            },
+
             toGithub: function () {
                 window.open("https://github.com/ericjesse/lagoon", "_blank");
             },
@@ -98,6 +109,9 @@
 
         mounted() {
             EventBus.$on('display-snakebar', this.showSnakebar);
+            EventBus.$on('datasource-set', () => {
+                this.showTerminalButton = true;
+            });
         }
     }
 </script>

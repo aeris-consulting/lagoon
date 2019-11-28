@@ -45,4 +45,8 @@
     overflow-y: auto;
     overflow-x: hidden;
   }
+
+  .v--modal-box {
+    pointer-events: all;
+  }
 }

@@ -210,4 +210,32 @@ export default class DataSource {
     unselectNode(node) {
         this.selectedNodes = [];
     }
+
+    async getClusterNodes() {
+        return axios.post(this.apiRoot + '/data/' + this.id + '/command', {args: ['cluster', 'nodes']})
+            .then(response => {
+                const clusterNodes = response.data.data.split(/\n/)
+                    .map(nodeInfoString => nodeInfoString.split(' '))
+                    .filter(infos => infos.length >= 3)
+                    .map(infos => {
+                        return {
+                            id: infos[0],
+                            ip: infos[1].split('@')[0],
+                            role: infos[2].replace('myself,', '')
+                        }
+                    });
+                return clusterNodes;
+            }).catch(() => {
+                // not a cluster, do nothing
+            });
+    }
+
+    async executeCommand(commands, nodeId) {
+        return axios.post(this.apiRoot + '/data/' + this.id + '/command', {args: commands, nodeId: nodeId})
+            .then(response => {
+                return response.data;
+            }).catch(e => {
+                return Promise.reject(e.response.data.error)
+            });
+    }
 }

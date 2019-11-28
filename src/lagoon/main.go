@@ -94,6 +94,10 @@ func setupRouter() *gin.Engine {
 
 	r.Use(cors.Default())
 
+	r.POST(contextPath+"/data/:DataSourceUuid/command", func(c *gin.Context) {
+		api.ExecuteCommand(c)
+	})
+
 	// Create a data source
 	r.PUT(contextPath+"/datasource", func(c *gin.Context) {
 		api.CreateNewDataSource(c)

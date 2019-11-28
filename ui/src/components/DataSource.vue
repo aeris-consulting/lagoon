@@ -58,6 +58,11 @@
                 </div>
             </splitpanes>
         </div>
+
+        <terminal
+                :dataSource="selectedDatasource"
+                v-if="selectedDatasource">
+        </terminal>
     </div>
 </template>
 
@@ -65,12 +70,15 @@
     import axios from 'axios';
     import EntrypointList from "./EntrypointList";
     import EntrypointContent from "./EntrypointContent";
+    import Terminal from './Terminal.vue';
     import DataSource from "../models/DataSource";
     import Splitpanes from 'splitpanes'
+    import EventBus from '../eventBus'
+    import _ from 'lodash';
 
     export default {
         name: 'DataSourceList',
-        components: {EntrypointList, EntrypointContent, Splitpanes},
+        components: {EntrypointList, EntrypointContent, Splitpanes, Terminal},
 
         data() {
             return {
@@ -101,6 +109,7 @@
 
             select: function (datasource) {
                 this.selectedDatasource = new DataSource(datasource.uuid, '');
+                EventBus.$emit('datasource-set');
             }
         },
 
