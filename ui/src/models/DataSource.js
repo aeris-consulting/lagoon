@@ -29,7 +29,7 @@ export default class DataSource {
         console.log(this);
     }
 
-    listEntrypoints(entrypointPrefix, minLevel, maxLevel, completeAction, onError) {
+    listEntrypoints(entrypointPrefix, minLevel, maxLevel, completeAction, onError, onClose) {
         let receivedValues = [];
         let actualFilter;
         let overallFilter = ('*' + this.filter + '*').replace(/[*]+/g, '*');
@@ -75,29 +75,25 @@ export default class DataSource {
                                     // eslint-disable-next-line
                                     console.log("Closing the websocket");
                                     socket.close(1000, "End of data");
-                                    socket = null;
                                     // eslint-disable-next-line
                                     console.log("Count of received values: %d", receivedValues.length);
                                     completeAction(receivedValues);
                                 }, 0);
                             }
                         };
+                        socket.onerror = (e) => {
+                            setTimeout(() => {
+                                // eslint-disable-next-line
+                                console.log("The websocket got an error: ", e);
+                                onError(e);
+                            }, 0);
+                        };
                         socket.onclose = () => {
                             setTimeout(() => {
                                 // eslint-disable-next-line
                                 console.log("The websocket is closed");
-                                if (socket != null) {
-                                    socket = null;
-                                    completeAction(receivedValues);
-                                }
+                                onClose();
                             }, 0);
-                        };
-                        socket.onerror = (e) => {
-                            // eslint-disable-next-line
-                            console.log("The websocket got an error: ", e);
-                            socket.close(1006, "Received error");
-                            socket = null;
-                            completeAction([]);
                         };
                     };
                 }

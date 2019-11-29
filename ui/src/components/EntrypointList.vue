@@ -74,6 +74,8 @@
                     self.dataSource.status = null;
                 }, () => {
                     self.dataSource.status = null;
+                }, () => {
+                    self.dataSource.status = null;
                 });
             },
 

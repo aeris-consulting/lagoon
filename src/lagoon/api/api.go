@@ -1,17 +1,19 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/twinj/uuid"
 	"lagoon/datasource"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
 )
+
+const webSocketBatchSize = uint64(100)
 
 type DataSourceHeader struct {
 	Uuid        datasource.DataSourceUuid `json:"uuid" binding:"required"`
@@ -238,7 +240,7 @@ func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
 
 	defer func() {
 		go func() {
-			time.Sleep(30 * time.Second)
+			time.Sleep(10 * time.Second)
 			log.Printf("Websocket %v expired\n", wsUuid)
 			conn.Close()
 		}()
@@ -247,27 +249,43 @@ func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
 	log.Printf("Reading channel data for %s\n", wsUuid)
 	if dataChannel != nil {
 		for data := range dataChannel {
-			// Write messages of the channel
-			json, err := json.Marshal(data)
-			if err == nil {
-				err = conn.WriteMessage(websocket.TextMessage, json)
-			} else {
-				log.Printf("ERROR while converting %v: %s\n", data, err.Error())
+			for _, dataItem := range splitBatch(data) {
+				err = conn.WriteJSON(dataItem)
+				if err != nil {
+					log.Printf("ERROR while converting %v: %s\n", dataItem, err.Error())
+				}
 			}
 		}
 	}
 
 	if errorChannel != nil {
 		for error := range errorChannel {
-			// Write errors of the channel
-			json, err := json.Marshal(error.Error())
-			if err == nil {
-				err = conn.WriteMessage(websocket.TextMessage, json)
+			err = conn.WriteJSON(error.Error())
+			if err != nil {
+				log.Printf("ERROR while sending %v\n", err.Error())
 			}
 		}
 	}
-
 	log.Printf("Stop reading channel data for %s\n", wsUuid)
+}
+
+func splitBatch(dataToSplit datasource.DataBatch) []datasource.DataBatch {
+	if dataToSplit.Size <= webSocketBatchSize {
+		return []datasource.DataBatch{dataToSplit}
+	} else {
+		result := []datasource.DataBatch{}
+		for i := uint64(0); i < dataToSplit.Size; i += webSocketBatchSize {
+			d := datasource.DataBatch{}
+			start := i
+			end := uint64(math.Min(float64(i+webSocketBatchSize), float64(dataToSplit.Size)))
+			for j := start; j < end; j++ {
+				d.Data = append(d.Data, dataToSplit.Data[j])
+			}
+			d.Size = uint64(len(d.Data))
+			result = append(result, d)
+		}
+		return result
+	}
 }
 
 func ExecuteCommand(c *gin.Context) {

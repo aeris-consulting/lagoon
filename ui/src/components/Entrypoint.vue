@@ -173,7 +173,8 @@
                     this.open = true;
                 }, () => {
                     this.loading = false;
-                    this.open = false;
+                }, () => {
+                    this.loading = false;
                 });
             }
         },
