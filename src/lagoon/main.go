@@ -47,8 +47,8 @@ var rootCmd = &cobra.Command{
 
 			for _, ds := range configuration.Datasources {
 				log.Printf("Creating data source %s", ds.Name)
-				dsInfos, _ := api.CreateDataSourceFromDescriptor(ds)
-				api.DataSourcesHeaders = append(api.DataSourcesHeaders, dsInfos)
+				dsInfos, _ := api.CreateDataSourceFromDescriptor(ds, true)
+				api.DataSourcesHeaders[dsInfos.Id] = dsInfos
 			}
 		}
 
@@ -94,38 +94,45 @@ func setupRouter() *gin.Engine {
 
 	r.Use(cors.Default())
 
-	r.POST(contextPath+"/data/:DataSourceUuid/command", func(c *gin.Context) {
-		api.ExecuteCommand(c)
-	})
-
 	// Create a data source
 	r.PUT(contextPath+"/datasource", func(c *gin.Context) {
 		api.CreateNewDataSource(c)
 	})
+	r.PATCH(contextPath+"/datasource", func(c *gin.Context) {
+		api.UpdateDataSource(c)
+	})
 	r.GET(contextPath+"/datasource", func(c *gin.Context) {
 		log.Printf("Current data sources: %v \n", api.DataSourcesHeaders)
-		c.JSON(http.StatusOK, gin.H{"datasources": api.DataSourcesHeaders})
+		datasources := []api.DataSourceHeader{}
+		for _, v := range api.DataSourcesHeaders {
+			datasources = append(datasources, v)
+		}
+		c.JSON(http.StatusOK, gin.H{"datasources": datasources})
 	})
 
 	// list entry points
-	r.GET(contextPath+"/data/:DataSourceUuid/entrypoint", func(c *gin.Context) {
+	r.GET(contextPath+"/data/:DataSourceId/entrypoint", func(c *gin.Context) {
 		api.ListEntryPoints(c)
 	})
 
-	r.GET(contextPath+"/data/:DataSourceUuid/entrypoint/:entrypoint/info", func(c *gin.Context) {
+	r.GET(contextPath+"/data/:DataSourceId/entrypoint/:entrypoint/info", func(c *gin.Context) {
 		api.GetEntryPointInfos(c)
 	})
 
-	r.GET(contextPath+"/data/:DataSourceUuid/entrypoint/:entrypoint/content", func(c *gin.Context) {
+	r.GET(contextPath+"/data/:DataSourceId/entrypoint/:entrypoint/content", func(c *gin.Context) {
 		api.GetEntryPointContent(c)
 	})
 
-	r.DELETE(contextPath+"/data/:DataSourceUuid/entrypoint/:entrypoint", func(c *gin.Context) {
+	r.DELETE(contextPath+"/data/:DataSourceId/entrypoint/:entrypoint", func(c *gin.Context) {
 		api.DeleteEntryPoint(c)
 	})
 
-	r.DELETE(contextPath+"/data/:DataSourceUuid/entrypoint/:entrypoint/children", func(c *gin.Context) {
+	r.DELETE(contextPath+"/data/:DataSourceId/entrypoint/:entrypoint/children", func(c *gin.Context) {
 		api.DeleteEntryPointChildren(c)
+	})
+
+	r.POST(contextPath+"/data/:DataSourceId/command", func(c *gin.Context) {
+		api.ExecuteCommand(c)
 	})
 
 	// list entry points

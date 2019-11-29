@@ -23,8 +23,9 @@ var invalidProtocolError struct {
 }
 
 type RedisClient struct {
-	Datasource *datasource.DataSourceDescriptor
-	client     redis.Cmdable
+	datasource       *datasource.DataSourceDescriptor
+	client           redis.Cmdable
+	readOnlyCommands []string
 }
 
 type RedisVendor struct {
@@ -40,7 +41,7 @@ func (c *RedisVendor) Accept(source *datasource.DataSourceDescriptor) bool {
 
 func (c *RedisVendor) CreateDataSource(source *datasource.DataSourceDescriptor) (datasource.DataSource, error) {
 	datasource := RedisClient{
-		Datasource: source,
+		datasource: source,
 	}
 	err := datasource.Open()
 
@@ -73,8 +74,19 @@ func (c *RedisClient) Open() error {
 	return err
 }
 
+func (c *RedisClient) initReadonlyCommands() {
+	if c.datasource.ReadOnly && len(c.readOnlyCommands) == 0 {
+		for _, v := range c.client.Command().Val() {
+			if v.ReadOnly {
+				c.readOnlyCommands = append(c.readOnlyCommands, strings.ToLower(v.Name))
+			}
+		}
+		sort.Strings(c.readOnlyCommands)
+	}
+}
+
 func (c *RedisClient) createConnection() error {
-	var bootstrap = c.Datasource.Bootstrap
+	var bootstrap = c.datasource.Bootstrap
 	var parts = strings.Split(bootstrap, "://")
 	switch parts[0] {
 	case "cluster":
@@ -92,35 +104,35 @@ func (c *RedisClient) createClusterConnection(url string) error {
 
 	var e error
 	var password string
-	if c.Datasource.Password != "" {
-		password = c.Datasource.Password
+	if c.datasource.Password != "" {
+		password = c.datasource.Password
 	} else {
 		password = defaultOptions.Password
 	}
 	readTimeout := defaultOptions.ReadTimeout
-	if _, ok := c.Datasource.Configuration["readTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["readTimeout"])
+	if _, ok := c.datasource.Configuration["readTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.datasource.Configuration["readTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 	writeTimeout := defaultOptions.WriteTimeout
-	if _, ok := c.Datasource.Configuration["writeTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["writeTimeout"])
+	if _, ok := c.datasource.Configuration["writeTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.datasource.Configuration["writeTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 	maxConnAge := defaultOptions.MaxConnAge
-	if _, ok := c.Datasource.Configuration["maxConnAge"]; ok {
-		age, err := strconv.Atoi(c.Datasource.Configuration["maxConnAge"])
+	if _, ok := c.datasource.Configuration["maxConnAge"]; ok {
+		age, err := strconv.Atoi(c.datasource.Configuration["maxConnAge"])
 		if err == nil {
 			maxConnAge = time.Duration(age) * time.Minute
 		}
 	}
 	minIdleConns := defaultOptions.MinIdleConns
-	if _, ok := c.Datasource.Configuration["minIdleConns"]; ok {
-		c, err := strconv.Atoi(c.Datasource.Configuration["minIdleConns"])
+	if _, ok := c.datasource.Configuration["minIdleConns"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["minIdleConns"])
 		if err != nil {
 			minIdleConns = c
 		}
@@ -153,46 +165,46 @@ func (c *RedisClient) createSentinelConnection(url string) error {
 	var e error
 	var password string
 
-	if c.Datasource.Password != "" {
-		password = c.Datasource.Password
+	if c.datasource.Password != "" {
+		password = c.datasource.Password
 	} else {
 		password = defaultOptions.Password
 	}
 
 	readTimeout := defaultOptions.ReadTimeout
-	if _, ok := c.Datasource.Configuration["readTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["readTimeout"])
+	if _, ok := c.datasource.Configuration["readTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.datasource.Configuration["readTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 
 	writeTimeout := defaultOptions.WriteTimeout
-	if _, ok := c.Datasource.Configuration["writeTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["writeTimeout"])
+	if _, ok := c.datasource.Configuration["writeTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.datasource.Configuration["writeTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 
 	maxConnAge := defaultOptions.MaxConnAge
-	if _, ok := c.Datasource.Configuration["maxConnAge"]; ok {
-		age, err := strconv.Atoi(c.Datasource.Configuration["maxConnAge"])
+	if _, ok := c.datasource.Configuration["maxConnAge"]; ok {
+		age, err := strconv.Atoi(c.datasource.Configuration["maxConnAge"])
 		if err == nil {
 			maxConnAge = time.Duration(age) * time.Minute
 		}
 	}
 
 	minIdleConns := defaultOptions.MinIdleConns
-	if _, ok := c.Datasource.Configuration["minIdleConns"]; ok {
-		c, err := strconv.Atoi(c.Datasource.Configuration["minIdleConns"])
+	if _, ok := c.datasource.Configuration["minIdleConns"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["minIdleConns"])
 		if err != nil {
 			minIdleConns = c
 		}
 	}
 
 	opts := redis.FailoverOptions{
-		MasterName:    c.Datasource.Configuration["master"],
+		MasterName:    c.datasource.Configuration["master"],
 		SentinelAddrs: strings.Split(url, ","),
 		Password:      password,
 		ReadTimeout:   readTimeout,
@@ -214,35 +226,35 @@ func (c *RedisClient) createRedisConnection(url string) error {
 
 	var e error
 	var password string
-	if c.Datasource.Password != "" {
-		password = c.Datasource.Password
+	if c.datasource.Password != "" {
+		password = c.datasource.Password
 	} else {
 		password = defaultOptions.Password
 	}
 	readTimeout := defaultOptions.ReadTimeout
-	if _, ok := c.Datasource.Configuration["readTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["readTimeout"])
+	if _, ok := c.datasource.Configuration["readTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.datasource.Configuration["readTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 	writeTimeout := defaultOptions.WriteTimeout
-	if _, ok := c.Datasource.Configuration["writeTimeout"]; ok {
-		timeout, err := strconv.Atoi(c.Datasource.Configuration["writeTimeout"])
+	if _, ok := c.datasource.Configuration["writeTimeout"]; ok {
+		timeout, err := strconv.Atoi(c.datasource.Configuration["writeTimeout"])
 		if err == nil {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
 	maxConnAge := defaultOptions.MaxConnAge
-	if _, ok := c.Datasource.Configuration["maxConnAge"]; ok {
-		age, err := strconv.Atoi(c.Datasource.Configuration["maxConnAge"])
+	if _, ok := c.datasource.Configuration["maxConnAge"]; ok {
+		age, err := strconv.Atoi(c.datasource.Configuration["maxConnAge"])
 		if err == nil {
 			maxConnAge = time.Duration(age) * time.Minute
 		}
 	}
 	minIdleConns := defaultOptions.MinIdleConns
-	if _, ok := c.Datasource.Configuration["minIdleConns"]; ok {
-		c, err := strconv.Atoi(c.Datasource.Configuration["minIdleConns"])
+	if _, ok := c.datasource.Configuration["minIdleConns"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["minIdleConns"])
 		if err != nil {
 			minIdleConns = c
 		}
@@ -264,8 +276,6 @@ func (c *RedisClient) createRedisConnection(url string) error {
 }
 
 func (c *RedisClient) Close() {
-	// Close next
-
 	switch v := c.client.(type) {
 	case *redis.Client:
 		v.Close()
@@ -612,15 +622,21 @@ func (c *RedisClient) GetEntryPointInfos(entryPointValue datasource.EntryPoint) 
 }
 
 func (c *RedisClient) DeleteEntrypoint(entryPointValue datasource.EntryPoint) error {
+	if c.datasource.ReadOnly {
+		return errors.New("the data source can be only read")
+	}
 	return c.client.Del(string(entryPointValue)).Err()
 }
 
 func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryPoint, errorChannel chan<- error) (datasource.ActionStatus, error) {
-
 	var (
 		err          error
 		actionStatus datasource.ActionStatus
 	)
+	if c.datasource.ReadOnly {
+		return actionStatus, errors.New("the data source can be only read")
+	}
+
 	scanFilter := string(entryPointValue) + ":*"
 
 	err = c.client.Ping().Err()
@@ -831,9 +847,41 @@ func (c *RedisClient) Consume(entryPointValue datasource.EntryPoint, target chan
 }
 
 func (c *RedisClient) ExecuteCommand(args []interface{}, nodeID string) (interface{}, error) {
+	if len(args) > 0 && c.datasource.ReadOnly && !c.isClusterReadonlyCommand(args) {
+		cmd, ok := args[0].(string)
+		if ok {
+			c.initReadonlyCommands()
+			if !c.isReadOnlyCommand(cmd) {
+				return nil, errors.New(fmt.Sprintf("the data source %s can only be read", c.datasource.Id))
+			}
+		}
+	}
+
 	cmd := redis.NewCmd(args...)
 	c.processCmd(cmd, nodeID)
 	return cmd.Result()
+}
+
+func (c *RedisClient) isClusterReadonlyCommand(args []interface{}) bool {
+	if len(args) >= 2 {
+		cmd, ok := args[0].(string)
+		if ok && strings.ToLower(cmd) == "cluster" {
+			cmd, ok = args[1].(string)
+			cmd = strings.ToLower(cmd)
+			return ok && (cmd == "info" || cmd == "getkeysinslot" || cmd == "keyslot" || cmd == "myid" || cmd == "nodes" || cmd == "replicas" || cmd == "slaves" || cmd == "slots")
+		}
+	}
+	return false
+}
+
+func (c *RedisClient) isReadOnlyCommand(cmd string) bool {
+	lowerCmd := strings.ToLower(cmd)
+	for i := range c.readOnlyCommands {
+		if c.readOnlyCommands[i] == lowerCmd {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *RedisClient) processCmd(cmd redis.Cmder, nodeID string) {
