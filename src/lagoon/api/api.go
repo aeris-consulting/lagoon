@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -16,10 +17,11 @@ import (
 const webSocketBatchSize = uint64(100)
 
 type DataSourceHeader struct {
-	Uuid        datasource.DataSourceUuid `json:"uuid" binding:"required"`
-	Vendor      string                    `json:"vendor" binding:"required"`
-	Name        string                    `json:"name" binding:"required"`
-	Description string                    `json:"description"`
+	Id          datasource.DataSourceId `json:"id" binding:"required"`
+	Vendor      string                  `json:"vendor" binding:"required"`
+	Name        string                  `json:"name" binding:"required"`
+	Description string                  `json:"description"`
+	ReadOnly    bool                    `json:"readonly"`
 }
 
 type CommandRequest struct {
@@ -27,46 +29,76 @@ type CommandRequest struct {
 	NodeID string        `json:"nodeId"`
 }
 
-var DataSourcesHeaders []DataSourceHeader
+var DataSourcesHeaders = make(map[datasource.DataSourceId]DataSourceHeader)
 
-var dataSources = make(map[datasource.DataSourceUuid]datasource.DataSource)
+var dataSources = make(map[datasource.DataSourceId]datasource.DataSource)
 var webSocketChannels = make(map[string]chan datasource.DataBatch)
 var webSocketErrorChannels = make(map[string]chan error)
 
 func CreateNewDataSource(c *gin.Context) {
 	var dataSourceDescriptor datasource.DataSourceDescriptor
 	if err := c.Bind(&dataSourceDescriptor); err == nil {
-		datasource, err := CreateDataSourceFromDescriptor(dataSourceDescriptor)
+		datasource, err := CreateDataSourceFromDescriptor(dataSourceDescriptor, true)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		} else {
-			DataSourcesHeaders = append(DataSourcesHeaders, datasource)
+			DataSourcesHeaders[datasource.Id] = datasource
 			log.Printf("Current data sources: %v \n", DataSourcesHeaders)
-			c.JSON(http.StatusOK, gin.H{"DataSourceUuid": datasource.Uuid})
+			c.JSON(http.StatusOK, gin.H{"dataSourceId": datasource.Id})
 		}
 	} else {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 }
 
-func CreateDataSourceFromDescriptor(dataSourceDescriptor datasource.DataSourceDescriptor) (DataSourceHeader, error) {
+func UpdateDataSource(c *gin.Context) {
+	var dataSourceDescriptor datasource.DataSourceDescriptor
+	if err := c.Bind(&dataSourceDescriptor); err == nil {
+		dataSourceId := datasource.DataSourceId(dataSourceDescriptor.Id)
+		existingDataSource, exists := dataSources[dataSourceId]
+		if !exists {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("The datasource with id '%s' does not exists", dataSourceId)})
+			return
+		}
+		existingDataSource.Close()
+
+		datasource, err := CreateDataSourceFromDescriptor(dataSourceDescriptor, false)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		} else {
+			// Replace the existing data source.
+			DataSourcesHeaders[datasource.Id] = datasource
+			log.Printf("Current data sources: %v \n", DataSourcesHeaders)
+			c.Status(http.StatusNoContent)
+			c.Writer.WriteHeaderNow()
+		}
+	} else {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	}
+}
+
+func CreateDataSourceFromDescriptor(dataSourceDescriptor datasource.DataSourceDescriptor, new bool) (DataSourceHeader, error) {
 	log.Printf("Creating data source %v\n", dataSourceDescriptor)
 	dataSource, err := datasource.CreateDataSource(&dataSourceDescriptor)
 
 	if err == nil {
-		var dataSourceUuid datasource.DataSourceUuid
-		if dataSourceDescriptor.Uuid != "" {
-			dataSourceUuid = datasource.DataSourceUuid(dataSourceDescriptor.Uuid)
+		var dataSourceId datasource.DataSourceId
+		if dataSourceDescriptor.Id != "" {
+			dataSourceId = datasource.DataSourceId(dataSourceDescriptor.Id)
+			if _, exists := dataSources[dataSourceId]; exists && new {
+				return DataSourceHeader{}, errors.New(fmt.Sprintf("The datasource with id '%s' already exists", dataSourceId))
+			}
 		} else {
-			dataSourceUuid = datasource.DataSourceUuid(uuid.NewV4().String())
+			dataSourceId = datasource.DataSourceId(uuid.NewV4().String())
 		}
-		dataSources[dataSourceUuid] = dataSource
+		dataSources[dataSourceId] = dataSource
 
 		dsInfos := DataSourceHeader{
-			Uuid:        dataSourceUuid,
+			Id:          dataSourceId,
 			Vendor:      dataSourceDescriptor.Vendor,
 			Name:        dataSourceDescriptor.Name,
 			Description: dataSourceDescriptor.Description,
+			ReadOnly:    dataSourceDescriptor.ReadOnly,
 		}
 		return dsInfos, nil
 	}
@@ -192,7 +224,7 @@ func DeleteEntryPointChildren(c *gin.Context) {
 }
 
 func findDataSource(c *gin.Context) (datasource.DataSource, bool) {
-	datasourceUuid := datasource.DataSourceUuid(c.Params.ByName("DataSourceUuid"))
+	datasourceUuid := datasource.DataSourceId(c.Params.ByName("DataSourceId"))
 	ds, ok := dataSources[datasourceUuid]
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("DataSource with UUID %s was not found", datasourceUuid)})

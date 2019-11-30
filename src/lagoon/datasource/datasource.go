@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type DataSourceUuid string
+type DataSourceId string
 
 type ActionStatus uint8
 
@@ -45,11 +45,12 @@ type DataBatch struct {
 }
 
 type DataSourceDescriptor struct {
-	Uuid          string            `json:"uuid" yaml:"uuid"`
+	Id            string            `json:"id" yaml:"uuid"`
 	Vendor        string            `json:"vendor" yaml:"vendor" binding:"required"`
 	Name          string            `json:"name" yaml:"name" binding:"required"`
 	Description   string            `json:"description"yaml:"description"`
 	Bootstrap     string            `json:"bootstrap" yaml:"bootstrap" binding:"required"`
+	ReadOnly      bool              `json:"readonly" yaml:"bootstrap"`
 	User          string            `json:"user" yaml:"user"`
 	Password      string            `json:"password" yaml:"password"`
 	Configuration map[string]string `json:"configuration" yaml:"configuration`

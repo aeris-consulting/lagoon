@@ -105,7 +105,6 @@ See [Configuration Reference](https://cli.vuejs.org/config/).
 
 ## TODO
 
-1. Manage read-only datasources
 1. Document the API
 1. Edit a content
 1. Add a root or child entrypoint (manage the type of entry point to be managed as properties from the datasource)

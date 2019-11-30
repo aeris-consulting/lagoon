@@ -6,9 +6,9 @@
             <div class="datasources" v-if="datasources !== null && datasources.length > 0">
                 <v-list>
                     <v-list-item
-                        :key="datasource.uuid"
-                        @click="select(datasource)"
-                        v-for="datasource in datasources">
+                            :key="datasource.id"
+                            @click="select(datasource)"
+                            v-for="datasource in datasources">
                         <v-list-item-content>
                             <v-list-item-title>{{ datasource.name }}</v-list-item-title>
                             <v-list-item-subtitle v-if="datasource.description">{{ datasource.description }}</v-list-item-subtitle>
@@ -108,7 +108,7 @@
             },
 
             select: function (datasource) {
-                this.selectedDatasource = new DataSource(datasource.uuid, '');
+                this.selectedDatasource = new DataSource(datasource.id, '');
                 EventBus.$emit('datasource-set');
             }
         },

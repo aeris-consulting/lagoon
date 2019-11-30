@@ -62,7 +62,7 @@ func TestMain(m *testing.M) {
 func TestRedisClient_OpenAndCloseWithPassword(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -76,7 +76,7 @@ func TestRedisClient_OpenAndCloseWithPassword(t *testing.T) {
 
 	// given
 	clientWithPassword := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 			Password:  "this-is-my-password",
 		},
@@ -101,7 +101,7 @@ func TestRedisClient_OpenAndCloseWithPassword(t *testing.T) {
 func TestRedisClient_OpenAndClose(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -131,7 +131,7 @@ func TestRedisClient_ListAllEntryPoints(t *testing.T) {
 	}
 
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -200,7 +200,7 @@ func TestRedisClient_ListEntryPointsWithOneFilter(t *testing.T) {
 	}
 
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -284,7 +284,7 @@ func TestRedisClient_ListEntryPointsWithTwoFilters(t *testing.T) {
 	}
 
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -357,7 +357,7 @@ func TestRedisClient_ListEntryPointsWithTwoFilters(t *testing.T) {
 func TestRedisClient_GetEntryPointInfosForValue(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -380,7 +380,7 @@ func TestRedisClient_GetEntryPointInfosForValue(t *testing.T) {
 		Length:     uint64(len("my-value")),
 		TimeToLive: time.Minute,
 	}
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 
 	// given
 	client.client.Persist("my-string")
@@ -391,7 +391,7 @@ func TestRedisClient_GetEntryPointInfosForValue(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	expected.TimeToLive = -1 * time.Second
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 
 	// given
 	client.client.Set("my-integer", 12345, -1)
@@ -402,7 +402,7 @@ func TestRedisClient_GetEntryPointInfosForValue(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	expected.Length = 8
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 
 	// given
 	client.client.Set("my-integer", true, -1)
@@ -413,13 +413,19 @@ func TestRedisClient_GetEntryPointInfosForValue(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 	expected.Length = 8
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
+}
+
+func assertWithTimeToLive(t *testing.T, expected datasource.EntryPointInfos, actual datasource.EntryPointInfos) {
+	assert.Equal(t, expected.Type, actual.Type)
+	assert.Equal(t, expected.Length, actual.Length)
+	assert.InDelta(t, expected.TimeToLive, actual.TimeToLive, float64(time.Second))
 }
 
 func TestRedisClient_GetEntryPointInfosForHash(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -449,7 +455,7 @@ func TestRedisClient_GetEntryPointInfosForHash(t *testing.T) {
 		TimeToLive: time.Minute,
 	}
 
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 
 	// given
 	client.client.Persist("my-hash")
@@ -461,13 +467,13 @@ func TestRedisClient_GetEntryPointInfosForHash(t *testing.T) {
 	assert.Nil(t, err)
 	expected.TimeToLive = -1 * time.Second
 
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 }
 
 func TestRedisClient_GetEntryPointInfosForSet(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -497,7 +503,7 @@ func TestRedisClient_GetEntryPointInfosForSet(t *testing.T) {
 		TimeToLive: time.Minute,
 	}
 
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 
 	// given
 	client.client.Persist("my-set")
@@ -509,13 +515,13 @@ func TestRedisClient_GetEntryPointInfosForSet(t *testing.T) {
 	assert.Nil(t, err)
 	expected.TimeToLive = -1 * time.Second
 
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 }
 
 func TestRedisClient_GetEntryPointInfosForList(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -545,7 +551,7 @@ func TestRedisClient_GetEntryPointInfosForList(t *testing.T) {
 		TimeToLive: time.Minute,
 	}
 
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 
 	// given
 	client.client.Persist("my-list")
@@ -557,13 +563,13 @@ func TestRedisClient_GetEntryPointInfosForList(t *testing.T) {
 	assert.Nil(t, err)
 	expected.TimeToLive = -1 * time.Second
 
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 }
 
 func TestRedisClient_GetEntryPointInfosForOrderedSet(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -615,7 +621,7 @@ func TestRedisClient_GetEntryPointInfosForOrderedSet(t *testing.T) {
 		TimeToLive: time.Minute,
 	}
 
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 
 	// given
 	client.client.Persist("my-zset")
@@ -627,13 +633,13 @@ func TestRedisClient_GetEntryPointInfosForOrderedSet(t *testing.T) {
 	assert.Nil(t, err)
 	expected.TimeToLive = -1 * time.Second
 
-	assert.Equal(t, expected, infos)
+	assertWithTimeToLive(t, expected, infos)
 }
 
 func TestRedisClient_GetEntryPointInfosForMissingKey(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -654,7 +660,7 @@ func TestRedisClient_GetEntryPointInfosForMissingKey(t *testing.T) {
 func TestRedisClient_GetContentForValue(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -738,7 +744,7 @@ func TestRedisClient_GetContentForValue(t *testing.T) {
 func TestRedisClient_GetContentForHash(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -780,7 +786,7 @@ func TestRedisClient_GetContentForHash(t *testing.T) {
 func TestRedisClient_GetContentForSet(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -821,7 +827,7 @@ func TestRedisClient_GetContentForSet(t *testing.T) {
 func TestRedisClient_GetContentForList(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -863,7 +869,7 @@ func TestRedisClient_GetContentForList(t *testing.T) {
 func TestRedisClient_GetContentForOrderedSet(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -929,7 +935,7 @@ func TestRedisClient_GetContentForOrderedSet(t *testing.T) {
 func TestRedisClient_GetContentForMissingKey(t *testing.T) {
 	// given
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -962,7 +968,7 @@ func TestRedisClient_DeleteEntrypointChildren(t *testing.T) {
 	}
 
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -1008,6 +1014,29 @@ func TestRedisClient_DeleteEntrypointChildren(t *testing.T) {
 	}
 }
 
+func TestRedisClient_DeleteEntrypointChildrenInReadOnlyMode(t *testing.T) {
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+			ReadOnly:  true,
+		},
+	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	errorChannel := make(chan error, 10)
+
+	// when
+	_, err = client.DeleteEntrypointChildren("any", errorChannel)
+
+	// then
+	assert.NotNil(t, err)
+}
+
 func TestRedisClient_DeleteEntrypoint(t *testing.T) {
 	// given
 	testData := []struct {
@@ -1021,7 +1050,7 @@ func TestRedisClient_DeleteEntrypoint(t *testing.T) {
 	}
 
 	client := RedisClient{
-		Datasource: &datasource.DataSourceDescriptor{
+		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
@@ -1058,6 +1087,66 @@ func TestRedisClient_DeleteEntrypoint(t *testing.T) {
 	if len(keys) != 803 { // There are three root nodes plus all the leaves of all four nodes.
 		t.Fatalf("Expected result size is %d, but actual is %d", 803, len(keys))
 	}
+}
+
+func TestRedisClient_DeleteEntrypointInReadOnlyMode(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+			ReadOnly:  true,
+		},
+	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	// when
+	err = client.DeleteEntrypoint("group-artic")
+
+	// then
+	assert.NotNil(t, err)
+}
+
+func TestRedisClient_CommandInReadOnlyMode(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Id:        "test",
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+			ReadOnly:  true,
+		},
+	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	// when + then
+	_, err = client.ExecuteCommand([]interface{}{"KEYS", "*"}, "")
+	assert.Nil(t, err)
+
+	// when + then
+	_, err = client.ExecuteCommand([]interface{}{"SET", "test", "1234"}, "")
+	assert.Equal(t, err.Error(), "the data source test can only be read")
+
+	// when + then
+	_, err = client.ExecuteCommand([]interface{}{"CLUSTER", "NODES"}, "")
+	assert.NotNil(t, err)
+	assert.NotEqual(t, err.Error(), "the data source test can only be read")
+
+	// when + then
+	_, err = client.ExecuteCommand([]interface{}{"CLUSTER", "FORGET"}, "")
+	assert.Equal(t, err.Error(), "the data source test can only be read")
+
+	// when + then
+	_, err = client.ExecuteCommand([]interface{}{"CLIENT", "KILL"}, "")
+	assert.Equal(t, err.Error(), "the data source test can only be read")
 }
 
 func sliceUnorderedEqual(a, b []interface{}) bool {
