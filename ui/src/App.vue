@@ -3,7 +3,10 @@
         <div class="" id="app-container">
             <v-app-bar
                 color="primary" dark>
-                <v-toolbar-title class="app-logo" @click="refresh">Lagoon</v-toolbar-title>
+                <v-toolbar-title @click="refresh" class="app-logo">Lagoon
+                    <span class="datasource-name" v-if="selectedDatasource != null">{{ selectedDatasource.name }}<template
+                            v-if="selectedDatasource.readonly">&nbsp;(Read-only)</template></span>
+                </v-toolbar-title>
                 <div class="flex-grow-1"></div>
                 <v-btn icon
                        @click="openTerminal"
@@ -53,6 +56,7 @@
 
         data() {
             return {
+                selectedDatasource: null,
                 showSnackbar: false,
                 snakebarText: '',
                 showTerminalButton: false
@@ -109,7 +113,11 @@
 
         mounted() {
             EventBus.$on('display-snakebar', this.showSnakebar);
-            EventBus.$on('datasource-set', () => {
+            EventBus.$on('datasource-set', (event) => {
+                // eslint-disable-next-line
+                console.log(event.datasource);
+                this.selectedDatasource = event.datasource;
+                document.title = 'Lagoon - ' + event.datasource.name;
                 this.showTerminalButton = true;
             });
         }
@@ -128,5 +136,10 @@
     }
     #content {
         margin: 10px 10px 0 10px;
+    }
+
+    .datasource-name {
+        margin-left: 20px;
+        font-size: 14px;
     }
 </style>
