@@ -47,19 +47,21 @@ This is equivalent to the following configuration:
 port: 2000
 
 datasources:
-- uuid: b9736224-1ab3-49d8-a59d-ef25ae709487
+- id: local-cluster
   vendor: redis
-  name: Redis - Cluster
+  name: Local Cluster
   bootstrap: cluster://127.0.0.1:13001,127.0.0.1:13002,127.0.0.1:13003,127.0.0.1:13004,127.0.0.1:13005,127.0.0.1:13006
+  readonly: true
   configuration:
     readTimeout: 30
     writeTimeout: 30
     maxConnAge: 30
     minIdleConns: 10
-- uuid: 6a4abdd9-35be-4d4a-ae46-1f1c70a7ad26
+- id: single
   vendor: redis
-  name: Redis - Single
+  name: Single
   bootstrap: redis://localhost:6379
+  readonly: false
 ```
 
 Otherwise the configuration will be loaded from the file set with parameter `-c` (default `lagoon.yml`) if it exists.
