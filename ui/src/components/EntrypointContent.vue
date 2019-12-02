@@ -1,14 +1,14 @@
 <template>
     <v-container fluid>
-        <v-row>
+        <v-row class="button-bar">
             <v-col cols="8">
-                <v-btn icon @click="refresh()" small>
+                <v-btn @click="refresh()" icon large>
                     <font-awesome-icon icon="sync"/>
                 </v-btn>
-                <v-btn icon @click="observe()" small v-if="!observing">
+                <v-btn @click="observe()" icon large v-if="!observing">
                     <font-awesome-icon icon="play"/>
                 </v-btn>
-                <v-btn icon @click="stopObserve()" small v-if="observing">
+                <v-btn @click="stopObserve()" icon large v-if="observing">
                     <font-awesome-icon icon="stop"/>
                 </v-btn>
                 <input type="number" class="frequency-input" v-model="observationFrequency"/> seconds
@@ -27,10 +27,10 @@
             </v-col>
             <v-col cols="4">
                 <v-row justify="end">
-                    <v-btn icon @click="edit()" small v-if="!dataSource.readonly">
+                    <v-btn @click="edit()" icon large v-if="!dataSource.readonly">
                         <font-awesome-icon icon="edit"/>
                     </v-btn>
-                    <v-btn icon @click="erase()" small v-if="!dataSource.readonly">
+                    <v-btn @click="erase()" icon large v-if="!dataSource.readonly">
                         <font-awesome-icon icon="trash"/>
                     </v-btn>
                 </v-row>
@@ -211,7 +211,7 @@
         computed: {
             timeToLive: function () {
                 if (this.node.info.timeToLive && this.node.info.timeToLive > 0) {
-                    return humanizeDuration(this.node.info.timeToLive, {units: ['y', 'mo', 'd', 'h', 'm', 's', 'ms']})
+                    return humanizeDuration(this.node.info.timeToLive, {units: ['d', 'h', 'm', 's']})
                 }
                 return null
             }
@@ -257,9 +257,8 @@
     }
 
     .button-bar {
-        background-color: lightgrey;
-        padding: 5px;
-        padding-left: 15px;
+        font-family: "Ubuntu Mono";
+        background-color: #f5f5f5;
         border-radius: .25rem;
         margin-bottom: 10px;
         font-size: 14px;
@@ -279,6 +278,10 @@
         .space {
             min-width: 20px;
         }
+    }
+
+    .entrypoint-content-panel {
+        font-family: "Ubuntu Mono";
     }
 
     .info {

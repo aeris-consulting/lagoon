@@ -13,15 +13,15 @@ func TestDeclareImplementation(t *testing.T) {
 		vendors = []Vendor{}
 		ctrl.Finish()
 	}()
-	m1 := NewMockVendor(ctrl)
-	m2 := NewMockVendor(ctrl)
+	vendor1 := NewMockVendor(ctrl)
+	vendor2 := NewMockVendor(ctrl)
 
 	// when
-	DeclareImplementation(m1)
-	DeclareImplementation(m2)
+	DeclareImplementation(vendor1)
+	DeclareImplementation(vendor2)
 
 	// then
-	assert.Contains(t, vendors, m1, m2)
+	assert.Contains(t, vendors, vendor1, vendor2)
 }
 
 func TestCreateDataSourceWhenOneAccepts(t *testing.T) {
@@ -34,18 +34,19 @@ func TestCreateDataSourceWhenOneAccepts(t *testing.T) {
 
 	descriptor := DataSourceDescriptor{}
 
-	m1 := NewMockVendor(ctrl)
-	m1.EXPECT().Accept(gomock.Eq(&descriptor)).Return(false).Times(1)
-	m1.EXPECT().CreateDataSource(gomock.Any()).Times(0)
+	vendor1 := NewMockVendor(ctrl)
+	vendor1.EXPECT().Accept(gomock.Eq(&descriptor)).Return(false).Times(1)
+	vendor1.EXPECT().CreateDataSource(gomock.Any()).Times(0)
 
-	m2 := NewMockVendor(ctrl)
 	datasource := NewMockDataSource(ctrl)
 	datasource.EXPECT().Open().Times(1)
-	m2.EXPECT().Accept(gomock.Eq(&descriptor)).Return(true).Times(1)
-	m2.EXPECT().CreateDataSource(gomock.Eq(&descriptor)).Return(datasource, nil).Times(1)
 
-	DeclareImplementation(m1)
-	DeclareImplementation(m2)
+	vendor2 := NewMockVendor(ctrl)
+	vendor2.EXPECT().Accept(gomock.Eq(&descriptor)).Return(true).Times(1)
+	vendor2.EXPECT().CreateDataSource(gomock.Eq(&descriptor)).Return(datasource, nil).Times(1)
+
+	DeclareImplementation(vendor1)
+	DeclareImplementation(vendor2)
 
 	// when
 	CreateDataSource(&DataSourceDescriptor{})
