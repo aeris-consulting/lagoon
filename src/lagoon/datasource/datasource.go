@@ -50,7 +50,7 @@ type DataSourceDescriptor struct {
 	Name          string            `json:"name" yaml:"name" binding:"required"`
 	Description   string            `json:"description"yaml:"description"`
 	Bootstrap     string            `json:"bootstrap" yaml:"bootstrap" binding:"required"`
-	ReadOnly      bool              `json:"readonly" yaml:"bootstrap"`
+	ReadOnly      bool              `json:"readonly" yaml:"readonly"`
 	User          string            `json:"user" yaml:"user"`
 	Password      string            `json:"password" yaml:"password"`
 	Configuration map[string]string `json:"configuration" yaml:"configuration`
