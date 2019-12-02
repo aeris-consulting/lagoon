@@ -1149,6 +1149,53 @@ func TestRedisClient_CommandInReadOnlyMode(t *testing.T) {
 	assert.Equal(t, err.Error(), "the data source test can only be read")
 }
 
+func TestRedisClient_SetAndGetValueWithExecuteCommand(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Id:        "test",
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+			ReadOnly:  false,
+		},
+	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+	_, _ = client.ExecuteCommand([]interface{}{"SET", "key", "value"}, "")
+
+	// when
+	rs, _ := client.ExecuteCommand([]interface{}{"GET", "key"}, "")
+
+	// then
+	assert.Equal(t, rs, "value")
+}
+
+func TestRedisClient_ExecuteUnknownCommand(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Id:        "test",
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+			ReadOnly:  false,
+		},
+	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	// when
+	_, err = client.ExecuteCommand([]interface{}{"AN_UNKNOWN_COMMAND", "AN_UNKNOWN_ARG"}, "")
+
+	// then
+	assert.Contains(t, err.Error(), "ERR unknown command")
+}
+
 func sliceUnorderedEqual(a, b []interface{}) bool {
 	if len(a) != len(b) {
 		return false
