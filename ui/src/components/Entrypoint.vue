@@ -191,8 +191,9 @@
 
 <style lang="scss" scoped>
     li {
-        font-family: "Courier New";
-        font-size: 13px;
+        font-family: "Ubuntu Mono";
+        color: gray;
+        font-size: 15px;
         list-style-type: none;
         padding-left: 10px;
     }

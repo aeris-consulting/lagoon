@@ -10,7 +10,9 @@
                             @click="select(datasource)"
                             v-for="datasource in datasources">
                         <v-list-item-content>
-                            <v-list-item-title>{{ datasource.name }}</v-list-item-title>
+                            <v-list-item-title>{{ datasource.name }}
+                                <template v-if="datasource.readonly">&nbsp;(Read-only)</template>
+                            </v-list-item-title>
                             <v-list-item-subtitle v-if="datasource.description">{{ datasource.description }}</v-list-item-subtitle>
                         </v-list-item-content>
                     </v-list-item>
@@ -108,8 +110,8 @@
             },
 
             select: function (datasource) {
-                this.selectedDatasource = new DataSource(datasource.id, '');
-                EventBus.$emit('datasource-set');
+                EventBus.$emit('datasource-set', {datasource: datasource});
+                this.selectedDatasource = new DataSource(datasource.id, datasource.readonly, '');
             }
         },
 

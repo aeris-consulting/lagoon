@@ -4,14 +4,14 @@ var _ = require('lodash');
 
 export default class DataSource {
 
-    constructor(id, filter) {
+    constructor(id, readonly, filter) {
         this.id = id;
+        this.readonly = readonly;
         this.level = 0;
         this.filter = filter;
         this.status = null;
         this.errors = [];
         this.selectedNodes = [];
-        this.readonly = false;
 
         if (!_.isNil(process) && !_.isNil(process.env) && !_.isNil(process.env.VUE_APP_API_BASE_URL) && !_.isNil(process.env.VUE_APP_WS_BASE_URL)) {
             this.apiRoot = process.env.VUE_APP_API_BASE_URL;
@@ -162,6 +162,11 @@ export default class DataSource {
     }
 
     deleteEntrypoint(node) {
+        if (this.readonly) {
+            this.addError('This data source can only be read');
+            return;
+        }
+
         let fullName = node.getFullName();
 
         axios.delete(this.apiRoot + '/data/' + this.id + '/entrypoint/' + fullName, {format: 'json'})
@@ -177,6 +182,11 @@ export default class DataSource {
     }
 
     deleteEntrypointChildren(node, component) {
+        if (this.readonly) {
+            this.addError('This data source can only be read');
+            return;
+        }
+
         let fullName = node.getFullName();
         let self = this;
 
