@@ -76,23 +76,22 @@ var rootCmd = &cobra.Command{
 			}
 		}()
 
-		// Wait for interrupt signal to gracefully shutdown the server with
-		// a timeout of 5 seconds.
+		// Waiting for a signal to stop the server.
 		quit := make(chan os.Signal)
-		// kill (no param) default send syscanll.SIGTERM
-		// kill -2 is syscall.SIGINT
-		// kill -9 is syscall. SIGKILL but can"t be catch, so don't need add it
+		// SIGKILL but can't be catch and is therefore ignored.
 		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 		<-quit
+
 		log.Println("Shutting down server...")
-
 		api.CloseDataSources()
-
+		// Wait for interrupt signal to gracefully shutdown the server with
+		// a timeout of 5 seconds.
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
 			log.Fatalf("Server shutdown failed: %s\n", err)
 		}
+		// Waiting for the 5 seconds of the timeout.
 		select {
 		case <-ctx.Done():
 		}
