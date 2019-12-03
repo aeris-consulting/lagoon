@@ -45,7 +45,7 @@ type DataBatch struct {
 }
 
 type DataSourceDescriptor struct {
-	Id            string            `json:"id" yaml:"uuid"`
+	Id            string            `json:"id" yaml:"id"`
 	Vendor        string            `json:"vendor" yaml:"vendor" binding:"required"`
 	Name          string            `json:"name" yaml:"name" binding:"required"`
 	Description   string            `json:"description"yaml:"description"`
