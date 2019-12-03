@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 
 	_ "lagoon/datasource/redis"
 )
@@ -57,10 +61,41 @@ var rootCmd = &cobra.Command{
 			configuration.Port = 4000
 		}
 
-		r := setupRouter()
+		router := setupRouter()
 
-		log.Printf("Starting Lagoon on port %d", configuration.Port)
-		r.Run(":" + strconv.Itoa(configuration.Port))
+		srv := &http.Server{
+			Addr:    ":" + strconv.Itoa(configuration.Port),
+			Handler: router,
+		}
+
+		go func() {
+			// service connections
+			log.Printf("Starting Lagoon listening %s", srv.Addr)
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("Server start failed: %s\n", err)
+			}
+		}()
+
+		// Wait for interrupt signal to gracefully shutdown the server with
+		// a timeout of 5 seconds.
+		quit := make(chan os.Signal)
+		// kill (no param) default send syscanll.SIGTERM
+		// kill -2 is syscall.SIGINT
+		// kill -9 is syscall. SIGKILL but can"t be catch, so don't need add it
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		<-quit
+		log.Println("Shutting down server...")
+
+		api.CloseDataSources()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Fatalf("Server shutdown failed: %s\n", err)
+		}
+		select {
+		case <-ctx.Done():
+		}
 	},
 }
 

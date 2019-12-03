@@ -35,7 +35,16 @@ var dataSources = make(map[datasource.DataSourceId]datasource.DataSource)
 var webSocketChannels = make(map[string]chan datasource.DataBatch)
 var webSocketErrorChannels = make(map[string]chan error)
 
+func CloseDataSources() {
+	log.Println("Closing all data sources...")
+	for _, ds := range dataSources {
+		ds.Close()
+	}
+	log.Println("Data sources closed")
+}
+
 func CreateNewDataSource(c *gin.Context) {
+	// TODO Validate: https://gin-gonic.com/docs/examples/custom-validators/
 	var dataSourceDescriptor datasource.DataSourceDescriptor
 	if err := c.Bind(&dataSourceDescriptor); err == nil {
 		datasource, err := CreateDataSourceFromDescriptor(dataSourceDescriptor, true)
