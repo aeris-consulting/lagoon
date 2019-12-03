@@ -64,6 +64,12 @@ func TestRedisClient_OpenAndCloseWithPassword(t *testing.T) {
 	client := RedisClient{
 		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+			Configuration: map[string]string {
+				"readTimeout": "30",
+				"writeTimeout": "30",
+				"maxConnAge": "30",
+				"minIdleConns": "10",
+			},
 		},
 	}
 	err := client.Open()
