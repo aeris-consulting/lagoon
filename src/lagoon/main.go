@@ -86,12 +86,12 @@ var rootCmd = &cobra.Command{
 		api.CloseDataSources()
 		// Wait for interrupt signal to gracefully shutdown the server with
 		// a timeout of 5 seconds.
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {
 			log.Fatalf("Server shutdown failed: %s\n", err)
 		}
-		// Waiting for the 5 seconds of the timeout.
+		// Waiting for the timeout.
 		select {
 		case <-ctx.Done():
 		}

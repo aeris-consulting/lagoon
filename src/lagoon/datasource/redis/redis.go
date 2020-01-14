@@ -352,11 +352,11 @@ func (c *RedisClient) scanAllNodes(scanFilter string, regexFilter *regexp2.Regex
 	case *redis.ClusterClient:
 		mutex := sync.Mutex{}
 		loopError := client.ForEachNode(func(node *redis.Client) error {
-			roleResult, err := node.Do("ROLE").Result()
+			roleResult, err := node.Do("role").Result()
 			if err == nil {
 				role := (roleResult.([]interface{})[0]).(string)
 				if "master" == strings.ToLower(role) {
-					id := node.Do("CLUSTER", "MYID").Val()
+					id := node.Do("cluster", "myid").Val()
 					log.Printf("Scanning keys on master node %+v\n", id)
 					count, err := c.scanOneNode(node, false, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
 					scannedKeyCount = scannedKeyCount + count
