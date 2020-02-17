@@ -114,6 +114,32 @@ func CreateDataSourceFromDescriptor(dataSourceDescriptor datasource.DataSourceDe
 	return DataSourceHeader{}, err
 }
 
+func GetInfos(c *gin.Context) {
+	ds, ok := findDataSource(c)
+	if ok {
+		infos, err := ds.GetInfos()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		} else {
+			c.JSON(http.StatusOK, gin.H{"infos": infos})
+		}
+	}
+}
+
+func GetState(c *gin.Context) {
+	ds, ok := findDataSource(c)
+	if ok {
+		status, err := ds.GetStatus()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		} else {
+			c.JSON(http.StatusOK, gin.H{"status": status})
+		}
+	}
+}
+
 func ListEntryPoints(c *gin.Context) {
 	ds, ok := findDataSource(c)
 	if ok {

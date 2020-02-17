@@ -149,6 +149,14 @@ func setupRouter() *gin.Engine {
 		api.ListEntryPoints(c)
 	})
 
+	r.GET(contextPath+"/data/:DataSourceId/infos", func(c *gin.Context) {
+		api.GetInfos(c)
+	})
+
+	r.GET(contextPath+"/data/:DataSourceId/state", func(c *gin.Context) {
+		api.GetState(c)
+	})
+
 	r.GET(contextPath+"/data/:DataSourceId/entrypoint/:entrypoint/info", func(c *gin.Context) {
 		api.GetEntryPointInfos(c)
 	})

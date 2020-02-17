@@ -12,7 +12,7 @@ beforeEach(() => {
     const webSocketLink = 'ws.link'
     dataSource = new DataSource("source-id", "filter")
     mockWebSocketServer = new Server(dataSource.wsRoot + webSocketLink)
-  
+
     mockWebSocketServer.on('connection', socket => {
 
         // send first part
@@ -26,7 +26,7 @@ beforeEach(() => {
         );
 
         // send second part
-        socket.send( 
+        socket.send(
             JSON.stringify(
                 {
                     size: 2,
@@ -41,22 +41,22 @@ beforeEach(() => {
     });
 
     axios.get.mockImplementation((url) => {
-    if (url.endsWith('info')) {
-        return Promise.resolve({
-            status: 200,
-            data: {
-                length: 3,
-                type: 'VALUE'
-            }
-        })
-    } else if (url.endsWith('content')) {
-        return Promise.resolve({
-            status: 202,
-            data: {
-                link: webSocketLink
-            }
-        })
-    }
+        if (url.endsWith('info')) {
+            return Promise.resolve({
+                status: 200,
+                data: {
+                    length: 3,
+                    type: 'VALUE'
+                }
+            })
+        } else if (url.endsWith('content')) {
+            return Promise.resolve({
+                status: 202,
+                data: {
+                    link: webSocketLink
+                }
+            })
+        }
     });
 });
 
@@ -66,31 +66,51 @@ test('refreshNodeDetails get websocket link', (done) => {
         expect(node.content).toEqual({
             length: 4,
             data: dataToSend
-        })
+        });
         done()
     })
 });
 
-test.only('parsing cluster nodes information', (done) => {
-    axios.post.mockImplementation(() => {
+test.only('fetching cluster nodes information', (done) => {
+    axios.get.mockImplementation(() => {
         return Promise.resolve({
             status: 200,
             data: {
-                data: `a9845ec8e989f835e45893011d41bc7f451db740 127.0.0.1:7004 slave 59cd91942c9f8a239cb0ad93aec2c38057d20596 0 1572785824611 3 connected
-59cd91942c9f8a239cb0ad93aec2c38057d20596 127.0.0.1:7001 master - 0 1572785825618 1 connected 5462-10923
-b649a0ab60323e9463208a43926800aee39799b3 127.0.0.1:7002 master - 0 1572785825114 5 connected 10924-16383
-1c5684ec22485074dd63cb49a544bd40cd36ac8f 127.0.0.1:7003 slave 6f57b139637c2047cd257974f426585a41211123 0 1572785825618 4 connected
-f7d4f909952f1cc1574e8de4513d9f674f20ae31 127.0.0.1:7005 slave b649a0ab60323e9463208a43926800aee39799b3 0 1572785826123 5 connected
-6f57b139637c2047cd257974f426585a41211123 127.0.0.1:7000@1700 myself,master - 0 0 2 connected 0-5461`
+                infos: {
+                    nodes: [
+                        {
+                            id: "my-id-1",
+                            server: "my-server-1",
+                            name: "my-name-1",
+                            role: "my-role-1",
+                            masters: ["my-master-1", "my-master-2"]
+                        },
+                        {
+                            id: "my-id-2",
+                            server: "my-server-2",
+                            name: "my-name-2",
+                            role: "my-role-2",
+                            masters: ["my-master-2", "my-master-1"]
+                        }
+                    ]
+                }
             }
         })
-    })
+    });
     dataSource.getClusterNodes().then((data) => {
-        expect(data[0].id).toEqual('a9845ec8e989f835e45893011d41bc7f451db740')
-        expect(data[0].ip).toEqual('127.0.0.1:7004')
-        expect(data[0].role).toEqual('slave')
-        expect(data[5].ip).toEqual('127.0.0.1:7000')
-        expect(data[5].role).toEqual('master')
+        expect(data[0].id).toEqual('my-id-1');
+        expect(data[0].server).toEqual('my-server-1');
+        expect(data[0].name).toEqual('my-name-1');
+        expect(data[0].role).toEqual('my-role-1');
+        expect(data[0].masters[0]).toEqual('my-master-1');
+        expect(data[0].masters[1]).toEqual('my-master-2');
+
+        expect(data[1].id).toEqual('my-id-2');
+        expect(data[1].server).toEqual('my-server-2');
+        expect(data[1].name).toEqual('my-name-2');
+        expect(data[1].role).toEqual('my-role-2');
+        expect(data[1].masters[0]).toEqual('my-master-2');
+        expect(data[1].masters[1]).toEqual('my-master-1');
         done()
     });
-})
+});

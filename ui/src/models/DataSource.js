@@ -237,21 +237,15 @@ export default class DataSource {
     }
 
     async getClusterNodes() {
-        return axios.post(this.apiRoot + '/data/' + this.id + '/command', {args: ['cluster', 'nodes']})
+        return axios.get(this.apiRoot + '/data/' + this.id + '/infos')
             .then(response => {
-                const clusterNodes = response.data.data.split(/\n/)
-                    .map(nodeInfoString => nodeInfoString.split(' '))
-                    .filter(infos => infos.length >= 3)
-                    .map(infos => {
-                        return {
-                            id: infos[0],
-                            ip: infos[1].split('@')[0],
-                            role: infos[2].replace('myself,', '')
-                        }
-                    });
-                return clusterNodes;
+                const infos = response.data.infos;
+                if (infos != null && infos.nodes != null) {
+                    return infos.nodes;
+                }
+                return [];
             }).catch(() => {
-                // not a cluster, do nothing
+                return Promise.reject(e.response.data.error)
             });
     }
 
