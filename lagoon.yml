@@ -1,0 +1,18 @@
+port: 4000
+
+datasources:
+  - id: local-cluster
+    vendor: redis
+    name: Local Cluster
+    bootstrap: cluster://127.0.0.1:13001,127.0.0.1:13002,127.0.0.1:13003,127.0.0.1:13004,127.0.0.1:13005,127.0.0.1:13006
+    #readonly: true
+    configuration:
+      readTimeout: 30
+      writeTimeout: 30
+      maxConnAge: 30
+      minIdleConns: 10
+  - id: single
+    vendor: redis
+    name: Single
+    bootstrap: redis://localhost:6379
+    #readonly: false

@@ -125,7 +125,7 @@
 </template>
 <script>
     import EventBus from '../eventBus';
-    import JsonHelper from '../helpers/jsonHelper';
+    import JsonHelper from '../helpers/JsonHelper';
 
     const humanizeDuration = require('humanize-duration');
 
