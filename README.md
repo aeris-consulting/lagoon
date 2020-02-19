@@ -15,6 +15,14 @@ cd src/lagoon
 go get -v -t -d ./...
 ```
 
+### Generating backend mocks
+```
+export GOPATH=$(pwd)
+cd src/lagoon
+mockgen -source=datasource/datasource.go -destination=datasource/datasource_mock.go -package=datasource
+```
+
+
 ## Run for development
 ### Start Redis
 Put a pre-existing file `appendonly.aof` with data in `docker/data`.

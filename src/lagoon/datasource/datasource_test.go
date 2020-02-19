@@ -33,13 +33,13 @@ func TestCreateDataSourceWhenOneAccepts(t *testing.T) {
 	}()
 
 	descriptor := DataSourceDescriptor{}
+	datasource := NewMockDataSource(ctrl)
+	datasource.EXPECT().Open().Times(1)
 
+	// The datasource to create is related to vendor 2 only.
 	vendor1 := NewMockVendor(ctrl)
 	vendor1.EXPECT().Accept(gomock.Eq(&descriptor)).Return(false).Times(1)
 	vendor1.EXPECT().CreateDataSource(gomock.Any()).Times(0)
-
-	datasource := NewMockDataSource(ctrl)
-	datasource.EXPECT().Open().Times(1)
 
 	vendor2 := NewMockVendor(ctrl)
 	vendor2.EXPECT().Accept(gomock.Eq(&descriptor)).Return(true).Times(1)
@@ -49,5 +49,9 @@ func TestCreateDataSourceWhenOneAccepts(t *testing.T) {
 	DeclareImplementation(vendor2)
 
 	// when
-	CreateDataSource(&DataSourceDescriptor{})
+	result, err := CreateDataSource(&DataSourceDescriptor{})
+
+	// then
+	assert.Nil(t, err)
+	assert.True(t, result == datasource)
 }

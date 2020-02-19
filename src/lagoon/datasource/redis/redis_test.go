@@ -67,23 +67,18 @@ func TestRedisClient_OpenAndCloseWithPassword(t *testing.T) {
 		},
 	}
 	err := client.Open()
-
 	client.client.ConfigSet("requirepass", "this-is-my-password")
 
 	// when
-	_, err = client.GetInfos()
+	_, err = client.ExecuteCommand([]interface{}{"info"}, "")
 	assert.NotNil(t, err)
 
-	// given
 	clientWithPassword := RedisClient{
 		datasource: &datasource.DataSourceDescriptor{
 			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 			Password:  "this-is-my-password",
 		},
 	}
-
-	// when
-	err = clientWithPassword.Open()
 	defer func() {
 		clientWithPassword.client.ConfigSet("requirepass", "")
 		clientWithPassword.Close()
@@ -91,8 +86,15 @@ func TestRedisClient_OpenAndCloseWithPassword(t *testing.T) {
 	}()
 
 	// then
+	err = clientWithPassword.Open()
 	assert.Nil(t, err)
-	result, err := clientWithPassword.GetInfos()
+	result, err := client.ExecuteCommand([]interface{}{"info"}, "")
+	// No action is possible any more without password.
+	assert.NotNil(t, err)
+
+	// then
+	result, err = clientWithPassword.ExecuteCommand([]interface{}{"info"}, "")
+	// The action is possible with password.
 	assert.Nil(t, err)
 
 	t.Logf("Redis Info: %+v\n", result)
@@ -1147,6 +1149,52 @@ func TestRedisClient_CommandInReadOnlyMode(t *testing.T) {
 	// when + then
 	_, err = client.ExecuteCommand([]interface{}{"CLIENT", "KILL"}, "")
 	assert.Equal(t, err.Error(), "the data source test can only be read")
+}
+
+func TestRedisClient_GetInfos(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+		},
+	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	// when
+	infos, err := client.GetInfos()
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, datasource.Cluster{}, infos)
+}
+
+func TestRedisClient_GetStatus(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+		},
+	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	// when
+	status, err := client.GetStatus()
+
+	// then
+	assert.Nil(t, err)
+	assert.NotNil(t, status.Timestamp)
+	assert.Empty(t, status.StateSections)
+	assert.NotEmpty(t, status.NodeStates)
 }
 
 func sliceUnorderedEqual(a, b []interface{}) bool {
