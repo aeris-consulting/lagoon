@@ -14,5 +14,6 @@ require (
 	github.com/testcontainers/testcontainers-go v0.0.8
 	github.com/twinj/uuid v1.0.0
 	github.com/ugorji/go/codec v1.1.7
+	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	gopkg.in/yaml.v2 v2.2.4
 )

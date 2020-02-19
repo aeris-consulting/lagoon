@@ -83,7 +83,7 @@ var rootCmd = &cobra.Command{
 		<-quit
 
 		log.Println("Shutting down server...")
-		api.CloseDataSources()
+		api.CloseAllDataSources()
 		// Wait for interrupt signal to gracefully shutdown the server with
 		// a timeout of 5 seconds.
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -129,19 +129,17 @@ func setupRouter() *gin.Engine {
 	r.Use(cors.Default())
 
 	// Create a data source
-	r.PUT(contextPath+"/datasource", func(c *gin.Context) {
+	r.POST(contextPath+"/datasource", func(c *gin.Context) {
 		api.CreateNewDataSource(c)
 	})
 	r.PATCH(contextPath+"/datasource", func(c *gin.Context) {
 		api.UpdateDataSource(c)
 	})
+	r.DELETE(contextPath+"/datasource/:DataSourceId", func(c *gin.Context) {
+		api.DeleteDataSource(c)
+	})
 	r.GET(contextPath+"/datasource", func(c *gin.Context) {
-		log.Printf("Current data sources: %v \n", api.DataSourcesHeaders)
-		datasources := []api.DataSourceHeader{}
-		for _, v := range api.DataSourcesHeaders {
-			datasources = append(datasources, v)
-		}
-		c.JSON(http.StatusOK, gin.H{"datasources": datasources})
+		api.GetDataSources(c)
 	})
 
 	// list entry points
@@ -177,7 +175,7 @@ func setupRouter() *gin.Engine {
 		api.ExecuteCommand(c)
 	})
 
-	// list entry points
+	// Consume web-socket.
 	r.GET(contextPath+"/ws/:wsUuid", func(c *gin.Context) {
 		api.ReadChannelContentAndSendToWebSocket(c)
 	})

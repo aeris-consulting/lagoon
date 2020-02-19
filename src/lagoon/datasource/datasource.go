@@ -2,7 +2,6 @@ package datasource
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"time"
 )
@@ -106,7 +105,10 @@ type ClusterState struct {
 	StateSections []StateSection `json:"sections"`
 }
 
-var vendors = []Vendor{}
+var (
+	ErrUnkownDatasource = errors.New("the specified kind of datasource is not known")
+	vendors             = []Vendor{}
+)
 
 // DeclareImplementation allows to the vendor plugins to register themselves at initialization time.
 func DeclareImplementation(vendor Vendor) {
@@ -127,7 +129,7 @@ func CreateDataSource(source *DataSourceDescriptor) (DataSource, error) {
 	if err != nil {
 		log.Printf("ERROR: %s\n", err.Error())
 	} else if dataSource == nil {
-		err = errors.New(fmt.Sprintf("Vendor %s is unknown", source.Vendor))
+		err = ErrUnkownDatasource
 		log.Printf("ERROR: %s\n", err.Error())
 	} else {
 

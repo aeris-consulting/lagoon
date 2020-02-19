@@ -101,7 +101,10 @@ func (c *RedisClient) GetStatus() (datasource.ClusterState, error) {
 			StateSections: []datasource.StateSection{},
 		}
 		client := c.client.(*redis.Client)
-		getNodeInfo(client, &nodeState)
+		err := getNodeInfo(client, &nodeState)
+		if err != nil {
+			return result, nil
+		}
 		result.NodeStates = append(result.NodeStates, nodeState)
 		return result, nil
 	}
@@ -138,7 +141,10 @@ func getClusterStatus(c *redis.ClusterClient) (datasource.ClusterState, error) {
 				NodeId:        id,
 				StateSections: []datasource.StateSection{},
 			}
-			getNodeInfo(nodeClient, &nodeState)
+			err := getNodeInfo(nodeClient, &nodeState)
+			if err != nil {
+				return err
+			}
 			result.NodeStates = append(result.NodeStates, nodeState)
 		}
 		return err
@@ -146,8 +152,11 @@ func getClusterStatus(c *redis.ClusterClient) (datasource.ClusterState, error) {
 	return result, err
 }
 
-func getNodeInfo(nodeClient *redis.Client, nodeState *datasource.NodeState) {
-	nodeInfos, _ := nodeClient.Info().Result()
+func getNodeInfo(nodeClient *redis.Client, nodeState *datasource.NodeState) error {
+	nodeInfos, err := nodeClient.Info().Result()
+	if err != nil {
+		return err
+	}
 	section := datasource.StateSection{}
 	for _, v := range strings.Split(nodeInfos, "\r\n") {
 		if v != "" {
@@ -167,6 +176,7 @@ func getNodeInfo(nodeClient *redis.Client, nodeState *datasource.NodeState) {
 	if section.Name != "" {
 		nodeState.StateSections = append(nodeState.StateSections, section)
 	}
+	return nil
 }
 
 func convertAndPutValue(v string, section map[string]interface{}) {
