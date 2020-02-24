@@ -22,6 +22,9 @@ import VueClipboard from 'vue-clipboard2';
 import VModal from 'vue-js-modal'
 import vuetify from './plugins/vuetify'
 import JsonViewer from 'vue-json-viewer'
+import Vuex from 'vuex'
+
+
 
 library.add(faAngleRight, faAngleDown, faSync, faTrash, faEye, faClock, faEdit, faPlay, faStop, faCopy, faPlus, faGithub, faTerminal, faTimes);
 Vue.config.productionTip = false;
@@ -30,6 +33,7 @@ Vue.use(VueClipboard);
 VueClipboard.config.autoSetContainer = true;
 Vue.use(VModal, {dialog: true})
 Vue.use(JsonViewer)
+Vue.use(Vuex)
 
 new Vue({
     vuetify,

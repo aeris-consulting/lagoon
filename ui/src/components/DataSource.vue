@@ -98,6 +98,8 @@
             refresh: function () {
                 let root = '..';
                 if (!_.isNil(process) && !_.isNil(process.env) && !_.isNil(process.env.VUE_APP_API_BASE_URL)) {
+                    console.log('inside!!')
+                    console.log(process.env.VUE_APP_API_BASE_URL)
                     root = process.env.VUE_APP_API_BASE_URL;
                 }
                 axios.get(root + '/datasource')
