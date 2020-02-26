@@ -23,8 +23,10 @@ import VModal from 'vue-js-modal'
 import vuetify from './plugins/vuetify'
 import JsonViewer from 'vue-json-viewer'
 import Vuex from 'vuex'
+import store from './store'
+import { ApiService } from './services/api.service'
 
-
+ApiService.init()
 
 library.add(faAngleRight, faAngleDown, faSync, faTrash, faEye, faClock, faEdit, faPlay, faStop, faCopy, faPlus, faGithub, faTerminal, faTimes);
 Vue.config.productionTip = false;
@@ -37,5 +39,6 @@ Vue.use(Vuex)
 
 new Vue({
     vuetify,
+    store,
     render: h => h(App),
 }).$mount('#app');

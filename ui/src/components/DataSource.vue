@@ -76,15 +76,25 @@
     import DataSource from "../models/DataSource";
     import Splitpanes from 'splitpanes'
     import EventBus from '../eventBus'
+    import { mapState } from 'vuex'
     import _ from 'lodash';
+    import { FETCH_DATASOURCE } from '../store/actions.type'
 
     export default {
         name: 'DataSourceList',
         components: {EntrypointList, EntrypointContent, Splitpanes, Terminal},
 
+        computed: mapState({
+            datasources: state => state.datasource.datasources
+        }),
+        // computed: {
+        //     datasources() {
+        //         return this.$store.state.datasources.bbb
+        //     }
+        // },
+
         data() {
             return {
-                datasources: [],
                 errors: [],
                 selectedDatasource: null,
             }
@@ -95,20 +105,8 @@
                 this.$emit('display-modal', event);
             },
 
-            refresh: function () {
-                let root = '..';
-                if (!_.isNil(process) && !_.isNil(process.env) && !_.isNil(process.env.VUE_APP_API_BASE_URL)) {
-                    console.log('inside!!')
-                    console.log(process.env.VUE_APP_API_BASE_URL)
-                    root = process.env.VUE_APP_API_BASE_URL;
-                }
-                axios.get(root + '/datasource')
-                    .then(response => {
-                        this.datasources = response.data.datasources;
-                    })
-                    .catch(e => {
-                        this.errors.push(e)
-                    });
+            refresh() {
+                this.$store.dispatch(FETCH_DATASOURCE)
             },
 
             select: function (datasource) {
