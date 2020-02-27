@@ -1,7 +1,7 @@
 <template>
     <div id="entrypoints">
         <div class="alerts-container">
-            <v-alert
+            <!-- <v-alert
                 :key="i" class="errors" v-for="(error, i) in dataSource.errors"
                 :value="true"
                 @input="dismissErrorMessage(i)"
@@ -11,50 +11,58 @@
                 dark
                 dismissible>
                 {{ error.message }}
-            </v-alert>
+            </v-alert> -->
         </div>
         <div class="filter-panel">
             <div>
                 <div class="filter-container">
                     <v-text-field
-                        v-model="dataSource.filter"
+                        v-model="filter"
                         label="Filter"
                     ></v-text-field>
                 </div>
                 <v-btn class="" color="primary" @click="refresh()">List</v-btn>
                 <v-progress-circular
                     class="loading-circle"
-                    v-if="dataSource.status !== null"
+                    v-if="loading"
                     indeterminate
                     color="green">
                 </v-progress-circular>
             </div>
         </div>
 
-        <div class="entrypoint-children-panel" 
+        <!-- <div class="entrypoint-children-panel" 
             v-if="root.hasChildren() && root.children !== null">
             <entrypoint-children @display-modal="showConfirmation"
                                  v-bind:children="root.children.values()"
                                  v-bind:dataSource="dataSource"></entrypoint-children>
-        </div>
+        </div> -->
     </div>
 </template>
 
 <script>
     import EntrypointChildren from "./EntrypointChildren";
     import Node from "../models/Node";
+    import { FETCH_ENTRY_POINTS } from '../store/actions.type';
 
     export default {
         name: 'EntrypointList',
         components: {EntrypointChildren},
 
         props: {
-            dataSource: Object,
+            datasourceId: String,
+        },
+
+        computed: {
+            datasource() {
+                return this.$store.getters.getDataSourceById(this.datasourceId)
+            }
         },
 
         data() {
             return {
-                root: new Node('', 0)
+                filter: '',
+                loading: false
             }
         },
 
@@ -64,19 +72,26 @@
             },
 
             refresh: function () {
-                this.dataSource.status = 'loading';
+                this.loading = true;
                 let self = this;
-                this.root.clear();
-                this.dataSource.listEntrypoints(null, 0, 0, receivedValues => {
-                    receivedValues.forEach(value => {
-                        self.root.addChildNode(new Node(value.path, value.length, value.hasContent))
-                    });
-                    self.dataSource.status = null;
-                }, () => {
-                    self.dataSource.status = null;
-                }, () => {
-                    self.dataSource.status = null;
+                this.$store.dispatch(FETCH_ENTRY_POINTS, {
+                    id: this.datasourceId,
+                    filter: this.filter,
+                    entrypointPrefix: null,
+                    minLevel: 0,
+                    maxLevel: 0,
                 });
+                
+                // this.dataSource.listEntrypoints(null, 0, 0, receivedValues => {
+                //     receivedValues.forEach(value => {
+                //         self.root.addChildNode(new Node(value.path, value.length, value.hasContent))
+                //     });
+                //     self.dataSource.status = null;
+                // }, () => {
+                //     self.dataSource.status = null;
+                // }, () => {
+                //     self.dataSource.status = null;
+                // });
             },
 
             dismissErrorMessage: function(errorIndex) {

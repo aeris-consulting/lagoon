@@ -12,9 +12,9 @@ if (!_.isNil(process) && !_.isNil(process.env) && !_.isNil(process.env.VUE_APP_A
 } else {
   apiRoot = location.pathname + '..';
   if (location.protocol == 'https:') {
-      wsRoot = 'wss://';
+    wsRoot = 'wss://';
   } else {
-      wsRoot = 'ws://';
+    wsRoot = 'ws://';
   }
   wsRoot += location.hostname + ':' + location.port + apiRoot
 }
@@ -51,7 +51,45 @@ export const ApiService = {
 };
 
 export const DatasourcesService = {
-  getDataSources() {
+  getDatasources() {
     return ApiService.get('datasource')
+  },
+
+  listEntryPoints(requestObj) {
+    const { id, filter, minLevel, maxLevel } = requestObj;
+    return ApiService.get(`data/${id}/entrypoint`, {
+      filter,
+      min: minLevel,
+      max: maxLevel,
+    })
+  },
+
+  getEntryPointsFromWebsocket(link) {
+    let receivedValues = [];
+    return new Promise((resolve, reject) => {
+      let socket = new WebSocket(wsRoot + link);
+      socket.onopen = () => {
+        socket.onmessage = ({ data }) => {
+          let jsonData = JSON.parse(data);
+          if (jsonData.size > 0) {
+            receivedValues = receivedValues.concat(jsonData.data);
+          } else {
+            // eslint-disable-next-line
+            console.log("Closing the websocket");
+            socket.close(1000, "End of data");
+            resolve(receivedValues);
+          }
+        };
+        socket.onerror = (e) => {
+          // eslint-disable-next-line
+          console.log("The websocket got an error: ", e);
+          reject(e);
+        };
+        socket.onclose = () => {
+          // eslint-disable-next-line
+          console.log("The websocket is closed");
+        };
+      }
+    })
   }
 }

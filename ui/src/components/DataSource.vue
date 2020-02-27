@@ -1,6 +1,6 @@
 <template>
     <div>
-        <div v-if="selectedDatasource === null">
+        <div v-if="selectedDatasourceId === null">
             <v-btn @click="refresh()" color="primary">Refresh data sources</v-btn>
 
             <div class="datasources" v-if="datasources !== null && datasources.length > 0">
@@ -28,9 +28,9 @@
                     splitpanes-size="30">
                     <entrypoint-list
                                     @display-modal="showConfirmation"
-                                    v-bind:dataSource="selectedDatasource"></entrypoint-list>
+                                    v-bind:datasourceId="selectedDatasourceId"></entrypoint-list>
                 </div>
-                <div    class="details-container" 
+                <!-- <div class="details-container" 
                     splitpanes-size="70">
                     <template v-if="selectedDatasource.selectedNodes.length > 0">
                         <v-tabs
@@ -57,7 +57,7 @@
                             No node selected
                         </div>
                     </template>
-                </div>
+                </div> -->
             </splitpanes>
         </div>
 
@@ -87,16 +87,11 @@
         computed: mapState({
             datasources: state => state.datasource.datasources
         }),
-        // computed: {
-        //     datasources() {
-        //         return this.$store.state.datasources.bbb
-        //     }
-        // },
 
         data() {
             return {
                 errors: [],
-                selectedDatasource: null,
+                selectedDatasourceId: null,
             }
         },
 
@@ -110,8 +105,7 @@
             },
 
             select: function (datasource) {
-                EventBus.$emit('datasource-set', {datasource: datasource});
-                this.selectedDatasource = new DataSource(datasource.id, datasource.readonly, '');
+                this.selectedDatasourceId = datasource.id
             }
         },
 
