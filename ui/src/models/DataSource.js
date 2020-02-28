@@ -76,6 +76,7 @@ export default class DataSource {
                                     console.log("Closing the websocket");
                                     socket.close(1000, "End of data");
                                     // eslint-disable-next-line
+                                    console.log(receivedValues)
                                     console.log("Count of received values: %d", receivedValues.length);
                                     completeAction(receivedValues);
                                 }, 0);

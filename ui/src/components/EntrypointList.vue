@@ -31,12 +31,12 @@
             </div>
         </div>
 
-        <!-- <div class="entrypoint-children-panel" 
-            v-if="root.hasChildren() && root.children !== null">
+        <div class="entrypoint-children-panel" 
+            v-if="firstLevelNodes && firstLevelNodes.length > 0">
             <entrypoint-children @display-modal="showConfirmation"
                                  v-bind:children="root.children.values()"
                                  v-bind:dataSource="dataSource"></entrypoint-children>
-        </div> -->
+        </div>
     </div>
 </template>
 
@@ -62,7 +62,8 @@
         data() {
             return {
                 filter: '',
-                loading: false
+                loading: false,
+                firstLevelNodes: []
             }
         },
 
@@ -71,16 +72,18 @@
                 this.$emit('display-modal', event);
             },
 
-            refresh: function () {
+            async refresh() {
                 this.loading = true;
                 let self = this;
-                this.$store.dispatch(FETCH_ENTRY_POINTS, {
+                const data = await this.$store.dispatch(FETCH_ENTRY_POINTS, {
                     id: this.datasourceId,
                     filter: this.filter,
                     entrypointPrefix: null,
                     minLevel: 0,
                     maxLevel: 0,
                 });
+
+                this.firstLevelNodes = data;
                 
                 // this.dataSource.listEntrypoints(null, 0, 0, receivedValues => {
                 //     receivedValues.forEach(value => {

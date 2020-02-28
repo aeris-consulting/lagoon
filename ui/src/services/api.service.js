@@ -58,9 +58,11 @@ export const DatasourcesService = {
   listEntryPoints(requestObj) {
     const { id, filter, minLevel, maxLevel } = requestObj;
     return ApiService.get(`data/${id}/entrypoint`, {
-      filter,
-      min: minLevel,
-      max: maxLevel,
+      params: {
+        filter,
+        min: minLevel,
+        max: maxLevel,
+      }
     })
   },
 

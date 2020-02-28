@@ -1,13 +1,15 @@
 import {
     SET_DATASOURCE,
     FETCH_DATASOURCE,
-    FETCH_ENTRY_POINTS
+    FETCH_ENTRY_POINTS,
+    SET_ENTRY_POINTS
 } from './actions.type';
 
 import { DatasourcesService } from '../services/api.service'
 
 const initialState = {
     datasources: [],
+    entryPoints: []
 }
 
 const state = { ...initialState }
@@ -74,6 +76,9 @@ export const actions = {
 export const mutations = {
     [SET_DATASOURCE](state, datasources) {
         state.datasources = datasources;
+    },
+    [SET_ENTRY_POINTS](state, entryPoints) {
+        state.entryPoints = entryPoints;
     },
 }
 
