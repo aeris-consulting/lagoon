@@ -2,12 +2,18 @@ import {
     SET_DATASOURCE,
     FETCH_DATASOURCE,
     FETCH_ENTRY_POINTS,
-    SET_ENTRY_POINTS
+    SET_ENTRY_POINTS,
+    SELECT_DATASOURCE,
+    SELECT_NODE,
+    SET_SELECTED_NODE,
+    SET_SELECTED_DATASOURCE
 } from './actions.type';
 
 import { DatasourcesService } from '../services/api.service'
 
 const initialState = {
+    selectedDatasourceId: null,
+    selectedNode: null,
     datasources: [],
     entryPoints: []
 }
@@ -15,8 +21,8 @@ const initialState = {
 const state = { ...initialState }
 
 const getters = {
-    getDataSourceById: (state) => (id) => {
-        return state.datasources.find(datasource => datasource.id === id)
+    getSelectedDatasource: (state) => () => {
+        return state.datasources.find(datasource => datasource.id === state.selectedDatasourceId)
     }
 }
 
@@ -26,8 +32,17 @@ export const actions = {
         context.commit(SET_DATASOURCE, data.datasources);
         return data.datasources;
     },
+    [SELECT_DATASOURCE](context, datasourceId) {
+        context.commit(SET_SELECTED_DATASOURCE, datasourceId);
+        return datasourceId;
+    },
+    [SELECT_NODE](context, node) {
+        context.commit(SET_SELECTED_NODE, node);
+        return datasourceId;
+    },
     async [FETCH_ENTRY_POINTS](context, request) {
-        const {id, filter, entrypointPrefix, minLevel, maxLevel} = request;
+        const {filter, minLevel, maxLevel} = request;
+        let { entrypointPrefix } = request;
         let actualFilter;
         let overallFilter = ('*' + filter + '*').replace(/[*]+/g, '*');
 
@@ -58,7 +73,7 @@ export const actions = {
         }
 
         const response = await DatasourcesService.listEntryPoints({
-            id,
+            id: context.state.selectedDatasourceId,
             filter: actualFilter,
             minLevel,
             maxLevel
@@ -80,6 +95,12 @@ export const mutations = {
     [SET_ENTRY_POINTS](state, entryPoints) {
         state.entryPoints = entryPoints;
     },
+    [SET_SELECTED_DATASOURCE](state, selectedDatasourceId) {
+        state.selectedDatasourceId = selectedDatasourceId
+    },
+    [SET_SELECTED_NODE](state, node) {
+        state.selectedNode = node
+    }
 }
 
 export default {

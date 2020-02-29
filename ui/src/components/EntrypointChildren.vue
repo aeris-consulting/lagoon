@@ -1,7 +1,7 @@
 <template>
     <div class="data" v-if="values.length" v-show="visible">
         <entrypoint @display-modal="showConfirmation" 
-                    v-bind:dataSource="dataSource" v-bind:key="child.name"
+                    v-bind:key="child.path"
                     v-bind:node="child" v-for="child in values"></entrypoint>
     </div>
 </template>
@@ -14,7 +14,7 @@
 
         components: {Entrypoint},
 
-        props: ['children', 'dataSource'],
+        props: ['children'],
 
         data() {
             return {

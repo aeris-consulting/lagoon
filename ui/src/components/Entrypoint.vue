@@ -2,12 +2,12 @@
     <li v-bind:class="{ 'loading': loading}">
         <span class="entry-point">
             <font-awesome-icon @click="toggleOpen()" class="icon-left" icon="angle-right"
-                               v-if="node.hasChildren() && !open"/>
+                               v-if="node.hasContent && !open"/>
             <font-awesome-icon @click="toggleOpen()" class="icon-left" icon="angle-down"
-                               v-if="node.hasChildren() && open"/>
-            <span @click="display()" class="name" v-bind:class="{ 'content': node.hasContent }">{{ node.name }}</span>
+                               v-if="node.hasContent && open"/>
+            <span @click="display()" class="name" v-bind:class="{ 'content': node.hasContent }">{{ node.path }}</span>
             <span class="info-bar"
-                  v-if="node.hasChildren()">({{ node.length ? node.length : node.children.length }})
+                  v-if="node.hasContent">({{ node.length }})
                 <span>
                     <v-progress-circular
                             :size="10"
@@ -22,15 +22,15 @@
                       <font-awesome-icon icon="plus"/>
                     </v-btn> -->
                     <v-btn
-                            @click="refresh()" icon v-if="node.hasChildren() && open"
+                            @click="refresh()" icon v-if="node.hasContent && open"
                             x-small>
                       <font-awesome-icon icon="sync"/>
                     </v-btn>
-                    <v-btn @click="copyChildrenList()" icon v-if="node.hasChildren() && open"
+                    <v-btn @click="copyChildrenList()" icon v-if="node.hasContent && open"
                            x-small>
                       <font-awesome-icon icon="copy"/>
                     </v-btn>
-                    <v-btn @click="deleteChildren()" icon v-if="!dataSource.readonly"
+                    <v-btn @click="deleteChildren()" icon v-if="!datasource.readonly"
                            x-small>
                       <font-awesome-icon icon="trash"/>
                     </v-btn>
@@ -45,13 +45,21 @@
     import EntrypointChildren from './EntrypointChildren';
     import EventBus from '../eventBus'
     import Vue from 'vue';
+    import {
+        SELECT_NODE
+    } from '../store/actions.type';
 
     export default {
         name: 'entrypoint',
 
         props: {
-            node: Object,
-            dataSource: Object,
+            node: Object
+        },
+
+        computed: {
+            datasource() {
+                return this.$store.getters.getSelectedDatasource()
+            }
         },
 
         data() {
@@ -75,7 +83,7 @@
 
             display: function () {
                 if (this.node.hasContent) {
-                    this.dataSource.selectNode(this.node);
+                    this.$store.dispatch(SELECT_NODE, this.node)
                 }
             },
 
@@ -129,7 +137,7 @@
                     message: 'Are you sure you want to delete all the children?',
                     yesHandler: () => {
                         self.loading = true;
-                        this.dataSource.deleteEntrypointChildren(self.node, self);
+                        this.datasource.deleteEntrypointChildren(self.node, self);
                     }, noHandler: () => {
                     }
                 });
@@ -150,7 +158,7 @@
                     this.node.children.clear();
                 }
 
-                this.dataSource.listEntrypoints(this.node.getFullName(), this.node.level, this.node.level, receivedValues => {
+                this.datasource.listEntrypoints(this.node.getFullName(), this.node.level, this.node.level, receivedValues => {
                     receivedValues.forEach(value => {
                         self.node.addChildNode(new Node(value.path, value.length, value.hasContent))
                     });
@@ -159,7 +167,7 @@
                         this.childrenComponent = new this.entrypointChildrenClass({
                             propsData: {
                                 children: this.node.children.values(),
-                                dataSource: this.dataSource,
+                                datasource: this.datasource,
                             }
                         });
                         this.childrenComponent.$mount();

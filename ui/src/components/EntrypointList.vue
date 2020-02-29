@@ -32,10 +32,20 @@
         </div>
 
         <div class="entrypoint-children-panel" 
-            v-if="firstLevelNodes && firstLevelNodes.length > 0">
-            <entrypoint-children @display-modal="showConfirmation"
-                                 v-bind:children="root.children.values()"
-                                 v-bind:dataSource="dataSource"></entrypoint-children>
+            v-if="nodes && nodes.length > 0">
+            <v-treeview
+                :items="nodes"
+                :load-children="fetchEntryPoints"
+                dense
+                transition
+            >
+                <template v-slot:label="{ item }">
+                    {{item.path}}
+                </template>
+            </v-treeview>
+            <!-- <entrypoint-children @display-modal="showConfirmation"
+                                 v-bind:children="firstLevelNodes"
+                                 v-bind:datasourceId="datasourceId"></entrypoint-children> -->
         </div>
     </div>
 </template>
@@ -55,7 +65,7 @@
 
         computed: {
             datasource() {
-                return this.$store.getters.getDataSourceById(this.datasourceId)
+                return this.$store.getters.getSelectedDatasource()
             }
         },
 
@@ -63,7 +73,7 @@
             return {
                 filter: '',
                 loading: false,
-                firstLevelNodes: []
+                nodes: []
             }
         },
 
@@ -72,18 +82,43 @@
                 this.$emit('display-modal', event);
             },
 
+            async fetchEntryPoints(node) {
+                return this.$store.dispatch(FETCH_ENTRY_POINTS, {
+                    filter: this.filter,
+                    entrypointPrefix: node.path,
+                    minLevel: node.level + 1,
+                    maxLevel: node.level + 1,
+                }).then(data => {
+                    node.children.push(...data.map(n => {
+                        if (n.length > 0) {
+                            n.children = []
+                        }
+                        n.name = n.path
+                        n.level = node.level + 1
+                        return n;
+                    }))
+                })
+            },
+
             async refresh() {
                 this.loading = true;
                 let self = this;
                 const data = await this.$store.dispatch(FETCH_ENTRY_POINTS, {
-                    id: this.datasourceId,
                     filter: this.filter,
                     entrypointPrefix: null,
                     minLevel: 0,
                     maxLevel: 0,
                 });
 
-                this.firstLevelNodes = data;
+                this.loading = false;
+                this.nodes = data.map(n => {
+                    if (n.length > 0) {
+                        n.children = []
+                    }
+                    n.name = n.path
+                    n.level = 0
+                    return n;
+                });
                 
                 // this.dataSource.listEntrypoints(null, 0, 0, receivedValues => {
                 //     receivedValues.forEach(value => {

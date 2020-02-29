@@ -49,4 +49,8 @@
   .v--modal-box {
     pointer-events: all;
   }
+
+  .v-treeview-node__root {
+    min-height: 20px !important;
+  }
 }

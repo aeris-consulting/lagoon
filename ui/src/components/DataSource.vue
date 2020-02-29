@@ -27,8 +27,7 @@
                     splitpanes-min="20"
                     splitpanes-size="30">
                     <entrypoint-list
-                                    @display-modal="showConfirmation"
-                                    v-bind:datasourceId="selectedDatasourceId"></entrypoint-list>
+                                    @display-modal="showConfirmation"></entrypoint-list>
                 </div>
                 <!-- <div class="details-container" 
                     splitpanes-size="70">
@@ -61,10 +60,10 @@
             </splitpanes>
         </div>
 
-        <terminal
+        <!-- <terminal
                 :dataSource="selectedDatasource"
                 v-if="selectedDatasource">
-        </terminal>
+        </terminal> -->
     </div>
 </template>
 
@@ -78,20 +77,20 @@
     import EventBus from '../eventBus'
     import { mapState } from 'vuex'
     import _ from 'lodash';
-    import { FETCH_DATASOURCE } from '../store/actions.type'
+    import { FETCH_DATASOURCE, SELECT_DATASOURCE } from '../store/actions.type'
 
     export default {
         name: 'DataSourceList',
         components: {EntrypointList, EntrypointContent, Splitpanes, Terminal},
 
         computed: mapState({
-            datasources: state => state.datasource.datasources
+            datasources: state => state.datasource.datasources,
+            selectedDatasourceId: state => state.datasource.selectedDatasourceId
         }),
 
         data() {
             return {
-                errors: [],
-                selectedDatasourceId: null,
+                errors: []
             }
         },
 
@@ -105,7 +104,7 @@
             },
 
             select: function (datasource) {
-                this.selectedDatasourceId = datasource.id
+                this.$store.dispatch(SELECT_DATASOURCE, datasource.id)
             }
         },
 
