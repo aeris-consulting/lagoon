@@ -6,14 +6,15 @@ import {
     SELECT_DATASOURCE,
     SELECT_NODE,
     SET_SELECTED_NODE,
-    SET_SELECTED_DATASOURCE
+    SET_SELECTED_DATASOURCE,
+    FETCH_NODE_DETAILS
 } from './actions.type';
 
 import { DatasourcesService } from '../services/api.service'
 
 const initialState = {
     selectedDatasourceId: null,
-    selectedNode: null,
+    selectedNodes: [],
     datasources: [],
     entryPoints: []
 }
@@ -32,13 +33,20 @@ export const actions = {
         context.commit(SET_DATASOURCE, data.datasources);
         return data.datasources;
     },
+    async [FETCH_NODE_DETAILS](context, node) {
+        DatasourcesService.getNodeDetails(context.getters.getSelectedDatasource(), node)
+            .then((details) => {
+                console.log(details)
+                return details
+            });
+    },
     [SELECT_DATASOURCE](context, datasourceId) {
         context.commit(SET_SELECTED_DATASOURCE, datasourceId);
         return datasourceId;
     },
     [SELECT_NODE](context, node) {
         context.commit(SET_SELECTED_NODE, node);
-        return datasourceId;
+        return node;
     },
     async [FETCH_ENTRY_POINTS](context, request) {
         const {filter, minLevel, maxLevel} = request;
@@ -99,7 +107,7 @@ export const mutations = {
         state.selectedDatasourceId = selectedDatasourceId
     },
     [SET_SELECTED_NODE](state, node) {
-        state.selectedNode = node
+        state.selectedNodes = [node]
     }
 }
 

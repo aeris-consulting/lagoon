@@ -40,12 +40,9 @@
                 transition
             >
                 <template v-slot:label="{ item }">
-                    {{item.path}}
+                    <span @click="display(item)" :class="{ 'content': item.hasContent }">{{item.path}}</span>
                 </template>
             </v-treeview>
-            <!-- <entrypoint-children @display-modal="showConfirmation"
-                                 v-bind:children="firstLevelNodes"
-                                 v-bind:datasourceId="datasourceId"></entrypoint-children> -->
         </div>
     </div>
 </template>
@@ -53,7 +50,7 @@
 <script>
     import EntrypointChildren from "./EntrypointChildren";
     import Node from "../models/Node";
-    import { FETCH_ENTRY_POINTS } from '../store/actions.type';
+    import { FETCH_ENTRY_POINTS, SELECT_NODE } from '../store/actions.type';
 
     export default {
         name: 'EntrypointList',
@@ -82,9 +79,15 @@
                 this.$emit('display-modal', event);
             },
 
+            display(node) {
+                if (node.hasContent) {
+                    this.$store.dispatch(SELECT_NODE, node)
+                }
+            },
+
             async fetchEntryPoints(node) {
                 return this.$store.dispatch(FETCH_ENTRY_POINTS, {
-                    filter: this.filter,
+                    filter: `${this.filter},${node.fullPath}*`,
                     entrypointPrefix: node.path,
                     minLevel: node.level + 1,
                     maxLevel: node.level + 1,
@@ -94,6 +97,7 @@
                             n.children = []
                         }
                         n.name = n.path
+                        n.fullPath = node.fullPath + ':' + n.path
                         n.level = node.level + 1
                         return n;
                     }))
@@ -103,6 +107,7 @@
             async refresh() {
                 this.loading = true;
                 let self = this;
+                this.nodes = []
                 const data = await this.$store.dispatch(FETCH_ENTRY_POINTS, {
                     filter: this.filter,
                     entrypointPrefix: null,
@@ -116,20 +121,10 @@
                         n.children = []
                     }
                     n.name = n.path
+                    n.fullPath = n.path
                     n.level = 0
                     return n;
                 });
-                
-                // this.dataSource.listEntrypoints(null, 0, 0, receivedValues => {
-                //     receivedValues.forEach(value => {
-                //         self.root.addChildNode(new Node(value.path, value.length, value.hasContent))
-                //     });
-                //     self.dataSource.status = null;
-                // }, () => {
-                //     self.dataSource.status = null;
-                // }, () => {
-                //     self.dataSource.status = null;
-                // });
             },
 
             dismissErrorMessage: function(errorIndex) {
@@ -181,5 +176,13 @@
 
     .loading-circle {
         margin-left: 10px;
+    }
+
+    .content {
+        cursor: pointer;
+
+        &:hover {
+            text-decoration: underline;
+        }
     }
 </style>

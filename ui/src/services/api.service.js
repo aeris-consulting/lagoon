@@ -51,6 +51,45 @@ export const ApiService = {
 };
 
 export const DatasourcesService = {
+  getNodeDetails(datasource, node) {
+    const fullPath = node.fullPath;
+    const nodeResourcePath = `data/${datasource.id}/entrypoint/${fullPath}`
+    const details = {};
+    return new Promise((resolve, reject) => {
+      ApiService.get(`${nodeResourcePath}/info`, {format: 'json'})
+        .then(response => {
+          details.info = response.data
+          ApiService.get(`${nodeResourcePath}/content`, {format: 'json'})
+            .then(response => {
+              if (response.status === 200) {
+                details.content = response.data
+                resolve(details)
+              } else if (response.status === 202) {
+                let receivedValues = [];
+                let socket = new WebSocket(this.wsRoot + response.data.link);
+                socket.onopen = () => {
+                  socket.onmessage = ({ data }) => {
+                    let jsonData = JSON.parse(data);
+                    if (jsonData.size) {
+                      receivedValues = receivedValues.concat(jsonData.data);
+                    } else {
+                      details.content = {
+                        length: receivedValues.length,
+                        data: receivedValues
+                      };
+                      resolve(details);
+                    }
+                  };
+                };
+              }
+            })
+            .catch(e => {
+              
+            })
+        })
+    });
+  },
+
   getDatasources() {
     return ApiService.get('datasource')
   },

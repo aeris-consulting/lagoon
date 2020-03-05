@@ -27,10 +27,10 @@
             </v-col>
             <v-col cols="4">
                 <v-row justify="end">
-                    <v-btn @click="edit()" icon large v-if="!dataSource.readonly">
+                    <v-btn @click="edit()" icon large v-if="!datasource.readonly">
                         <font-awesome-icon icon="edit"/>
                     </v-btn>
-                    <v-btn @click="erase()" icon large v-if="!dataSource.readonly">
+                    <v-btn @click="erase()" icon large v-if="!datasource.readonly">
                         <font-awesome-icon icon="trash"/>
                     </v-btn>
                 </v-row>
@@ -59,7 +59,7 @@
                                 </template>
                                 <span>Name of node (click to copy)</span>
                             </v-tooltip>
-                            {{ node.getFullName() }}
+                            {{ node.fullPath }}
                         </v-chip>
                     </v-col>
                     <v-col cols="6" style="text-align: right">
@@ -126,6 +126,7 @@
 <script>
     import EventBus from '../eventBus';
     import JsonHelper from '../helpers/jsonHelper';
+    import { FETCH_NODE_DETAILS } from '../store/actions.type';
 
     const humanizeDuration = require('humanize-duration');
 
@@ -133,7 +134,6 @@
         name: 'EntrypointContent',
 
         props: {
-            dataSource: Object,
             node: Object,
         },
 
@@ -149,12 +149,7 @@
 
         methods: {
             refresh: function () {
-                let self = this;
-                this.isLoadingContent = true;
-                this.dataSource.refreshNodeDetails(this.node).then(() => {
-                    this.isLoadingContent = false;
-                    self.lastRefresh = new Date();
-                });
+                this.$store.dispatch(FETCH_NODE_DETAILS, this.node)
             },
 
             observe: function () {
@@ -196,7 +191,7 @@
             },
 
             copyKey: function () {
-                this.$copyText(this.node.getFullName()).then(function () {
+                this.$copyText(this.node.fullPath).then(function () {
                     EventBus.$emit('display-snakebar', {
                         message: 'The key was copied to your clipboard'
                     });
@@ -209,6 +204,9 @@
         },
 
         computed: {
+            datasource() {
+                return this.$store.getters.getSelectedDatasource()
+            },
             timeToLive: function () {
                 if (this.node.info.timeToLive && this.node.info.timeToLive > 0) {
                     return humanizeDuration(this.node.info.timeToLive, {units: ['d', 'h', 'm', 's']})

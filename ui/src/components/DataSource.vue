@@ -27,26 +27,24 @@
                     splitpanes-min="20"
                     splitpanes-size="30">
                     <entrypoint-list
-                                    @display-modal="showConfirmation"></entrypoint-list>
+                        @display-modal="showConfirmation"></entrypoint-list>
                 </div>
-                <!-- <div class="details-container" 
+                <div class="details-container" 
                     splitpanes-size="70">
-                    <template v-if="selectedDatasource.selectedNodes.length > 0">
+                    <template v-if="selectedNodes.length > 0">
                         <v-tabs
                             splitpanes-size="70"
                             background-color="primary"
                             dark>
-                            <template v-for="n in selectedDatasource.selectedNodes">
-                                <v-tab :key="n.getFullName()">
-                                    <span class="tab-title" :title="n.getFullName()">
-                                        {{ n.getFullName() }}
+                            <template v-for="n in selectedNodes">
+                                <v-tab :key="n.fullPath">
+                                    <span class="tab-title" :title="n.fullPath">
+                                        {{ n.fullPath }}
                                     </span>
                                 </v-tab>
-                                <v-tab-item :key="n.getFullName() + '-tab-item'">
+                                <v-tab-item :key="n.fullPath + '-tab-item'">
                                     <entrypoint-content
-                                                        @display-modal="showConfirmation"
-                                                        v-bind:dataSource="selectedDatasource" v-bind:node="n"
-                                                        ></entrypoint-content>
+                                        :node="n"></entrypoint-content>
                                 </v-tab-item>
                             </template>
                         </v-tabs>
@@ -56,7 +54,7 @@
                             No node selected
                         </div>
                     </template>
-                </div> -->
+                </div>
             </splitpanes>
         </div>
 
@@ -85,7 +83,8 @@
 
         computed: mapState({
             datasources: state => state.datasource.datasources,
-            selectedDatasourceId: state => state.datasource.selectedDatasourceId
+            selectedDatasourceId: state => state.datasource.selectedDatasourceId,
+            selectedNodes: state => state.datasource.selectedNodes
         }),
 
         data() {
