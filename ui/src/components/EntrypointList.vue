@@ -50,7 +50,7 @@
 <script>
     import EntrypointChildren from "./EntrypointChildren";
     import Node from "../models/Node";
-    import { FETCH_ENTRY_POINTS, SELECT_NODE } from '../store/actions.type';
+    import { FETCH_ENTRY_POINTS, SELECT_NODE, UNSELECT_NODE } from '../store/actions.type';
 
     export default {
         name: 'EntrypointList',
@@ -86,6 +86,7 @@
             },
 
             async fetchEntryPoints(node) {
+                node.children = [];
                 return this.$store.dispatch(FETCH_ENTRY_POINTS, {
                     filter: `${this.filter},${node.fullPath}*`,
                     entrypointPrefix: node.path,
@@ -130,6 +131,29 @@
             dismissErrorMessage: function(errorIndex) {
                 this.dataSource.errors.splice(errorIndex, 1);
             }
+        },
+
+        created() {
+            this.$store.subscribe((mutation, state) => {
+                if (mutation.type === UNSELECT_NODE) {
+                    const deletedNode = mutation.payload
+                    if (deletedNode.level === 0) {
+                        this.refresh();
+                    } else {
+                        // finding the parent node of the deleted node
+                        let parentNode = null;
+                        let treeToSearch = this.nodes;
+                        deletedNode.fullPath.split(':').slice(0, -1).forEach((path, idx) => {
+                            parentNode = treeToSearch.find(n => n.name === path);
+                            if (parentNode && parentNode.children) {
+                                treeToSearch = parentNode.children;
+                            }
+                        });
+
+                        this.fetchEntryPoints(parentNode);
+                    }
+                }
+            })
         }
     }
 </script>

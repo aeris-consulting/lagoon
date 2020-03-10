@@ -105,6 +105,10 @@ export const DatasourcesService = {
     })
   },
 
+  deleteEntrypoint(datasourceId, fullPath) {
+    return ApiService.delete(`data/${datasourceId}/entrypoint/${fullPath}`, {format: 'json'})
+  },
+
   getEntryPointsFromWebsocket(link) {
     let receivedValues = [];
     return new Promise((resolve, reject) => {

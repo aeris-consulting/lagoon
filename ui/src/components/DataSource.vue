@@ -44,6 +44,7 @@
                                 </v-tab>
                                 <v-tab-item :key="n.fullPath + '-tab-item'">
                                     <entrypoint-content
+                                        @display-modal="showConfirmation"
                                         :node="n"></entrypoint-content>
                                 </v-tab-item>
                             </template>

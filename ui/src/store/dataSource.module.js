@@ -7,7 +7,9 @@ import {
     SELECT_NODE,
     SET_SELECTED_NODE,
     SET_SELECTED_DATASOURCE,
-    FETCH_NODE_DETAILS
+    FETCH_NODE_DETAILS,
+    DELETE_NODE,
+    UNSELECT_NODE
 } from './actions.type';
 
 import { DatasourcesService } from '../services/api.service'
@@ -34,15 +36,23 @@ export const actions = {
         return data.datasources;
     },
     async [FETCH_NODE_DETAILS](context, node) {
-        DatasourcesService.getNodeDetails(context.getters.getSelectedDatasource(), node)
+        return DatasourcesService.getNodeDetails(context.getters.getSelectedDatasource(), node)
             .then((details) => {
-                console.log(details)
                 return details
             });
     },
     [SELECT_DATASOURCE](context, datasourceId) {
         context.commit(SET_SELECTED_DATASOURCE, datasourceId);
         return datasourceId;
+    },
+    [DELETE_NODE](context, node) {
+        return DatasourcesService.deleteEntrypoint(context.state.selectedDatasourceId, node.fullPath)
+            .then(() => {
+                context.commit(UNSELECT_NODE, node);
+            })
+            .catch(() => {
+
+            });
     },
     [SELECT_NODE](context, node) {
         context.commit(SET_SELECTED_NODE, node);
@@ -104,10 +114,13 @@ export const mutations = {
         state.entryPoints = entryPoints;
     },
     [SET_SELECTED_DATASOURCE](state, selectedDatasourceId) {
-        state.selectedDatasourceId = selectedDatasourceId
+        state.selectedDatasourceId = selectedDatasourceId;
     },
     [SET_SELECTED_NODE](state, node) {
-        state.selectedNodes = [node]
+        state.selectedNodes = [node];
+    },
+    [UNSELECT_NODE](state, node) {
+        state.selectedNodes = state.selectedNodes.filter(n => n.fullPath !== node.fullPath);
     }
 }
 

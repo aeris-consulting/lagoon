@@ -13,6 +13,7 @@
                 </v-btn>
                 <input type="number" class="frequency-input" v-model="observationFrequency"/> seconds
                 <v-chip
+                        v-if="lastRefresh"
                         class="mr-2">
                     <v-tooltip bottom>
                         <template v-slot:activator="{ on }">
@@ -20,7 +21,7 @@
                         </template>
                         <span>Last refresh time</span>
                     </v-tooltip>
-                    <template v-if="lastRefresh">
+                    <template>
                         {{ lastRefresh.toISOString() }}
                     </template>
                 </v-chip>
@@ -63,7 +64,7 @@
                         </v-chip>
                     </v-col>
                     <v-col cols="6" style="text-align: right">
-                        <template v-if="node.info">
+                        <template v-if="nodeDetails.info">
                             <v-chip
                                     class="mr-2">
                                 <v-tooltip bottom>
@@ -72,7 +73,7 @@
                                     </template>
                                     <span>Type</span>
                                 </v-tooltip>
-                                {{ node.info.type.toLowerCase() }}
+                                {{ nodeDetails.info.type.toLowerCase() }}
                             </v-chip>
                             <v-chip
                                     class="mr-2">
@@ -82,7 +83,7 @@
                                     </template>
                                     <span>Length</span>
                                 </v-tooltip>
-                                {{ node.info.length }}
+                                {{ nodeDetails.info.length }}
                             </v-chip>
                             <template v-if="timeToLive">
                                 <v-chip
@@ -100,12 +101,12 @@
                     </v-col>
                 </v-row>
 
-                <div class="content mt-2" v-if="node.content && node.info">
+                <div class="content mt-2" v-if="nodeDetails.content && nodeDetails.info">
                     <h4>Content</h4>
-                    <div v-if="node.info.type == 'HASH'">
+                    <div v-if="nodeDetails.info.type == 'HASH'">
                         <json-viewer
                                 :expand-depth=3
-                                :value="node.content.data[0] | parseIfIsJson"
+                                :value="nodeDetails.content.data[0] | parseIfIsJson"
                                 copyable>
                         </json-viewer>
                     </div>
@@ -113,7 +114,7 @@
                     <div class="content-data" v-else>
                         <json-viewer
                                 :expand-depth=1
-                                :value="node.content.data | parseIfIsJson"
+                                :value="nodeDetails.content.data | parseIfIsJson"
                                 copyable>
                         </json-viewer>
                     </div>
@@ -126,7 +127,7 @@
 <script>
     import EventBus from '../eventBus';
     import JsonHelper from '../helpers/jsonHelper';
-    import { FETCH_NODE_DETAILS } from '../store/actions.type';
+    import { FETCH_NODE_DETAILS, DELETE_NODE } from '../store/actions.type';
 
     const humanizeDuration = require('humanize-duration');
 
@@ -139,17 +140,20 @@
 
         data() {
             return {
+                nodeDetails: null,
                 observing: false,
                 observationFrequency: 10,
                 lastRefresh: null,
-                isLoadingContent: false,
+                isLoadingContent: true,
                 format: null
             }
         },
 
         methods: {
-            refresh: function () {
-                this.$store.dispatch(FETCH_NODE_DETAILS, this.node)
+            refresh: async function () {
+                this.isLoadingContent = true;
+                this.nodeDetails = await this.$store.dispatch(FETCH_NODE_DETAILS, this.node)
+                this.isLoadingContent = false;
             },
 
             observe: function () {
@@ -184,9 +188,9 @@
                 this.$emit('display-modal', {
                     message: 'Are you sure you want to delete the content?',
                     yesHandler: () => {
-                        this.dataSource.deleteEntrypoint(this.node);
-                    }, noHandler: () => {
-                    }
+                        this.$store.dispatch(DELETE_NODE, this.node)
+                        // this.dataSource.deleteEntrypoint(this.node);
+                    }, noHandler: () => {}
                 });
             },
 
@@ -208,8 +212,8 @@
                 return this.$store.getters.getSelectedDatasource()
             },
             timeToLive: function () {
-                if (this.node.info.timeToLive && this.node.info.timeToLive > 0) {
-                    return humanizeDuration(this.node.info.timeToLive, {units: ['d', 'h', 'm', 's']})
+                if (this.nodeDetails && this.nodeDetails.info.timeToLive && this.nodeDetails.info.timeToLive > 0) {
+                    return humanizeDuration(this.nodeDetails.info.timeToLive, {units: ['d', 'h', 'm', 's']})
                 }
                 return null
             }
