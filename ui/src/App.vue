@@ -10,7 +10,7 @@
                 <div class="flex-grow-1"></div>
                 <v-btn icon
                        @click="openTerminal"
-                       v-if="showTerminalButton">
+                       v-if="selectedDatasourceId">
                     <font-awesome-icon :icon="['fa', 'terminal']"/>
                 </v-btn>
                 <v-btn icon
@@ -46,6 +46,7 @@
 <script>
     import DataSource from './components/DataSource.vue'
     import EventBus from './eventBus'
+    import { mapState } from 'vuex'
 
     export default {
         name: 'app-container',
@@ -53,6 +54,10 @@
         components: {
             DataSource
         },
+
+        computed: mapState({
+            selectedDatasourceId: state => state.datasource.selectedDatasourceId,
+        }),
 
         data() {
             return {

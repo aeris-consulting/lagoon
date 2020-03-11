@@ -47,10 +47,37 @@ export const ApiService = {
     return Vue.axios.delete(resource).catch(error => {
       throw new Error(`Delete Error ApiService ${error}`);
     });
-  }
+  },
+
 };
 
 export const DatasourcesService = {
+  async executeCommand(commands, nodeId, datasourceId) {
+    return axios.post(`data/${datasourceId}/command`, {args: commands, nodeId: nodeId})
+        .then(response => {
+            return response.data;
+        }).catch(e => {
+            return Promise.reject(e.response.data.error)
+        });
+  },
+
+  getClusterNodes(datasourceId) {
+    return ApiService.post(`data/${datasourceId}/command`, {args: ['cluster', 'nodes']})
+      .then(response => {
+          const clusterNodes = response.data.data.split(/\n/)
+              .map(nodeInfoString => nodeInfoString.split(' '))
+              .filter(infos => infos.length >= 3)
+              .map(infos => {
+                  return {
+                      id: infos[0],
+                      ip: infos[1].split('@')[0],
+                      role: infos[2].replace('myself,', '')
+                  }
+              });
+          return clusterNodes;
+      })
+  },
+
   getNodeDetails(datasource, node) {
     const fullPath = node.fullPath;
     const nodeResourcePath = `data/${datasource.id}/entrypoint/${fullPath}`

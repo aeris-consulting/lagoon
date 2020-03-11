@@ -151,6 +151,7 @@
 
         methods: {
             refresh: async function () {
+                this.lastRefresh = new Date();
                 this.isLoadingContent = true;
                 this.nodeDetails = await this.$store.dispatch(FETCH_NODE_DETAILS, this.node)
                 this.isLoadingContent = false;
@@ -189,7 +190,6 @@
                     message: 'Are you sure you want to delete the content?',
                     yesHandler: () => {
                         this.$store.dispatch(DELETE_NODE, this.node)
-                        // this.dataSource.deleteEntrypoint(this.node);
                     }, noHandler: () => {}
                 });
             },

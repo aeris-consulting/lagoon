@@ -39,8 +39,26 @@
                 dense
                 transition
             >
-                <template v-slot:label="{ item }">
-                    <span @click="display(item)" :class="{ 'content': item.hasContent }">{{item.path}}</span>
+                <template v-slot:label="{ item: node, open }">
+                    <span @click="display(node)" :class="{ 'content': node.hasContent }">{{node.path}}</span>
+                    <v-btn
+                        icon
+                        @click="fetchEntryPoints(node)" v-if="node.hasContent && open"
+                        x-small>
+                      <font-awesome-icon icon="sync"/>
+                    </v-btn>
+                    <v-btn 
+                        icon
+                        @click="copyChildrenList(node)" v-if="node.hasContent && open"
+                        x-small>
+                      <font-awesome-icon icon="copy"/>
+                    </v-btn>
+                    <v-btn 
+                        icon
+                        @click="deleteChildren(node)" v-if="!datasource.readonly"
+                        x-small>
+                      <font-awesome-icon icon="trash"/>
+                    </v-btn>
                 </template>
             </v-treeview>
         </div>
@@ -48,13 +66,11 @@
 </template>
 
 <script>
-    import EntrypointChildren from "./EntrypointChildren";
-    import Node from "../models/Node";
-    import { FETCH_ENTRY_POINTS, SELECT_NODE, UNSELECT_NODE } from '../store/actions.type';
+    import EventBus from '../eventBus'
+    import { FETCH_ENTRY_POINTS, SELECT_NODE, UNSELECT_NODE, DELETE_NODE } from '../store/actions.type';
 
     export default {
         name: 'EntrypointList',
-        components: {EntrypointChildren},
 
         props: {
             datasourceId: String,
@@ -82,6 +98,39 @@
             display(node) {
                 if (node.hasContent) {
                     this.$store.dispatch(SELECT_NODE, node)
+                }
+            },
+
+            deleteChildren(node) {
+                this.$emit('display-modal', {
+                    message: 'Are you sure you want to delete the content?',
+                    yesHandler: () => {
+                        this.$store.dispatch(DELETE_NODE, node)
+                    }, noHandler: () => {}
+                });
+            },
+
+            copyChildrenList(node) {
+                const fullName = node.fullPath;
+                let valueToCopy;
+                node.children.forEach((v, k) => {
+                    if (valueToCopy) {
+                        valueToCopy += "\r\n" + v.fullPath;
+                    } else {
+                        valueToCopy = v.fullPath;
+                    }
+                });
+
+                if (valueToCopy) {
+                    this.$copyText(valueToCopy).then(function () {
+                        EventBus.$emit('display-snakebar', {
+                            message: 'The list of direct children was copied to your clipboard'
+                        });
+                    }, function () {
+                        EventBus.$emit('display-snakebar', {
+                            message: 'The list of direct children could not be copied to your clipboard!!!'
+                        });
+                    })
                 }
             },
 

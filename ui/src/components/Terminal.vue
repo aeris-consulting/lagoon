@@ -50,6 +50,7 @@
     var $ = require('jquery');
     require('jquery.terminal');
     import EventBus from '../eventBus';
+    import { DatasourcesService } from '../services/api.service'
 
     const defaultNode = {
         id: ''
@@ -57,9 +58,10 @@
 
     export default {
         name: 'terminal',
-        components: {},
-        props: {
-            dataSource: Object
+        computed: {
+            datasource() {
+                return this.$store.getters.getSelectedDatasource()
+            }
         },
         data() {
             return {
@@ -80,7 +82,7 @@
                     if (command !== '') {
                         const commands = command.split(' ');
                         const nodeId = (self.selectedNode && self.selectedNode.id) ? self.selectedNode.id : ''
-                        self.dataSource.executeCommand(commands, nodeId).then(response => {
+                        DatasourcesService.executeCommand(commands, nodeId, self.datasource.id).then(response => {
                             echoDataToTerminal(this, response.data);
                         }).catch(e => {
                             this.echo(String(e));
@@ -96,11 +98,14 @@
             EventBus.$on('open-terminal', () => {
                 this.$modal.show('terminal');
             });
-            this.dataSource.getClusterNodes().then((clusterNodesInfo) => {
-                this.clusterNodesInfo = clusterNodesInfo;
-                if (clusterNodesInfo.length > 0) {
-                    this.selectedNode = defaultNode
-                }
+            DatasourcesService.getClusterNodes(this.datasource.id)
+                .then((clusterNodesInfo) => {
+                    if (clusterNodesInfo) {
+                        this.clusterNodesInfo = clusterNodesInfo;
+                        if (clusterNodesInfo.length > 0) {
+                            this.selectedNode = defaultNode
+                        }
+                    }
             })
         }
     }

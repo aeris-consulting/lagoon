@@ -59,10 +59,9 @@
             </splitpanes>
         </div>
 
-        <!-- <terminal
-                :dataSource="selectedDatasource"
-                v-if="selectedDatasource">
-        </terminal> -->
+        <terminal
+            v-if="selectedDatasourceId">
+        </terminal>
     </div>
 </template>
 
@@ -71,7 +70,6 @@
     import EntrypointList from "./EntrypointList";
     import EntrypointContent from "./EntrypointContent";
     import Terminal from './Terminal.vue';
-    import DataSource from "../models/DataSource";
     import Splitpanes from 'splitpanes'
     import EventBus from '../eventBus'
     import { mapState } from 'vuex'
