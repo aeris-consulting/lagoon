@@ -26,9 +26,7 @@ export const ApiService = {
   },
 
   get(url, params) {
-    return Vue.axios.get(url, params).catch(error => {
-      throw new Error(`Query Error ApiService ${error}`);
-    });
+    return Vue.axios.get(url, params);
   },
 
   post(url, params) {
@@ -44,9 +42,7 @@ export const ApiService = {
   },
 
   delete(resource) {
-    return Vue.axios.delete(resource).catch(error => {
-      throw new Error(`Delete Error ApiService ${error}`);
-    });
+    return Vue.axios.delete(resource);
   },
 
 };
@@ -75,6 +71,8 @@ export const DatasourcesService = {
                   }
               });
           return clusterNodes;
+      }).catch(e => {
+        return Promise.reject(e.response.data.error)
       })
   },
 
@@ -111,14 +109,14 @@ export const DatasourcesService = {
               }
             })
             .catch(e => {
-              
+              reject(e.response.data.error)
             })
         })
     });
   },
 
   getDatasources() {
-    return ApiService.get('datasource')
+    return ApiService.get('datasource').then(response => response.data)
   },
 
   listEntryPoints(requestObj) {
@@ -129,11 +127,16 @@ export const DatasourcesService = {
         min: minLevel,
         max: maxLevel,
       }
+    }).catch(e => {
+      return Promise.reject(e.response.data.error)
     })
   },
 
   deleteEntrypoint(datasourceId, fullPath) {
     return ApiService.delete(`data/${datasourceId}/entrypoint/${fullPath}`, {format: 'json'})
+      .catch(e => {
+        return Promise.reject(e.response.data.error)
+      })
   },
 
   getEntryPointsFromWebsocket(link) {

@@ -3,7 +3,7 @@
         <div v-if="selectedDatasourceId === null">
             <v-btn @click="refresh()" color="primary">Refresh data sources</v-btn>
 
-            <div class="datasources" v-if="datasources !== null && datasources.length > 0">
+            <div class="datasources" v-if="datasources && datasources.length > 0">
                 <v-list>
                     <v-list-item
                             :key="datasource.id"
@@ -66,14 +66,11 @@
 </template>
 
 <script>
-    import axios from 'axios';
     import EntrypointList from "./EntrypointList";
     import EntrypointContent from "./EntrypointContent";
     import Terminal from './Terminal.vue';
     import Splitpanes from 'splitpanes'
-    import EventBus from '../eventBus'
     import { mapState } from 'vuex'
-    import _ from 'lodash';
     import { FETCH_DATASOURCE, SELECT_DATASOURCE } from '../store/actions.type'
 
     export default {

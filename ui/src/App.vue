@@ -1,6 +1,22 @@
 <template>
     <v-app>
         <div class="" id="app-container">
+            <div class="alerts-container">    
+                <v-alert
+                    :key="i" class="errors" v-for="(error, i) in errors"
+                    border="left"
+                    type="error"
+                    dark>
+                    {{ error.message }}
+                    <template v-slot:append>
+                        <v-btn
+                            @click="dismissErrorMessage(i)"
+                            class="mx-2" icon>
+                            <v-icon dark>mdi-close</v-icon>
+                        </v-btn>
+                    </template>
+                </v-alert>
+            </div>
             <v-app-bar
                 color="primary" dark>
                 <v-toolbar-title @click="refresh" class="app-logo">Lagoon
@@ -47,6 +63,7 @@
     import DataSource from './components/DataSource.vue'
     import EventBus from './eventBus'
     import { mapState } from 'vuex'
+    import { DISSMISS_ERROR } from './store/actions.type'
 
     export default {
         name: 'app-container',
@@ -57,6 +74,7 @@
 
         computed: mapState({
             selectedDatasourceId: state => state.datasource.selectedDatasourceId,
+            errors: state => state.datasource.errors,
         }),
 
         data() {
@@ -64,7 +82,7 @@
                 selectedDatasource: null,
                 showSnackbar: false,
                 snakebarText: '',
-                showTerminalButton: false
+                showTerminalButton: false,
             }
         },
 
@@ -113,6 +131,10 @@
 
             refresh: function () {
                 window.document.location.reload();
+            },
+
+            dismissErrorMessage: function(errorIndex) {
+                this.$store.dispatch(DISSMISS_ERROR, errorIndex)
             }
         },
 
@@ -146,5 +168,12 @@
     .datasource-name {
         margin-left: 20px;
         font-size: 14px;
+    }
+
+    .alerts-container {
+        position: fixed;
+        z-index: 9999;
+        top: 80px;
+        right: 20px;
     }
 </style>

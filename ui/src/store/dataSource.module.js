@@ -9,7 +9,10 @@ import {
     SET_SELECTED_DATASOURCE,
     FETCH_NODE_DETAILS,
     DELETE_NODE,
-    UNSELECT_NODE
+    UNSELECT_NODE,
+    ADD_ERROR,
+    REMOVE_ERROR,
+    DISSMISS_ERROR
 } from './actions.type';
 
 import { DatasourcesService } from '../services/api.service'
@@ -18,7 +21,8 @@ const initialState = {
     selectedDatasourceId: null,
     selectedNodes: [],
     datasources: [],
-    entryPoints: []
+    entryPoints: [],
+    errors: []
 }
 
 const state = { ...initialState }
@@ -30,12 +34,18 @@ const getters = {
 }
 
 export const actions = {
-    async [FETCH_DATASOURCE](context) {
-        const { data } = await DatasourcesService.getDatasources();
-        context.commit(SET_DATASOURCE, data.datasources);
-        return data.datasources;
+    [DISSMISS_ERROR](context, errorIndex) {
+        context.commit(REMOVE_ERROR, errorIndex);
     },
-    async [FETCH_NODE_DETAILS](context, node) {
+    [FETCH_DATASOURCE](context) {
+        return DatasourcesService.getDatasources().then((data) => {
+            context.commit(SET_DATASOURCE, data.datasources);
+            return data.datasources;
+        }).catch(e => {
+            context.commit(ADD_ERROR, e);
+        })
+    },
+    [FETCH_NODE_DETAILS](context, node) {
         return DatasourcesService.getNodeDetails(context.getters.getSelectedDatasource(), node)
             .then((details) => {
                 return details
@@ -58,7 +68,7 @@ export const actions = {
         context.commit(SET_SELECTED_NODE, node);
         return node;
     },
-    async [FETCH_ENTRY_POINTS](context, request) {
+    [FETCH_ENTRY_POINTS](context, request) {
         const {filter, minLevel, maxLevel} = request;
         let { entrypointPrefix } = request;
         let actualFilter;
@@ -89,20 +99,27 @@ export const actions = {
                         .replace(/[*]+/g, '*');
             }
         }
-
-        const response = await DatasourcesService.listEntryPoints({
-            id: context.state.selectedDatasourceId,
-            filter: actualFilter,
-            minLevel,
-            maxLevel
-        });
+        return new Promise((resolve, reject) => {
+            DatasourcesService.listEntryPoints({
+                id: context.state.selectedDatasourceId,
+                filter: actualFilter,
+                minLevel,
+                maxLevel
+            }).then(response => {
+                if (response.status === 202) {
+                    DatasourcesService.getEntryPointsFromWebsocket(response.data.link).then(data => {
+                        resolve(data)
+                    }).catch(e => {
+                        context.commit(ADD_ERROR, e);
+                    })
+                } else {
+                    reject()
+                }
+            }).catch(e => {
+                context.commit(ADD_ERROR, e);
+            })
+        })
         
-        if (response.status === 202) {
-            const data = await DatasourcesService.getEntryPointsFromWebsocket(response.data.link)
-            console.log(data)
-            return data;
-        }
-        return Promise.reject()
     }
 }
 
@@ -121,7 +138,19 @@ export const mutations = {
     },
     [UNSELECT_NODE](state, node) {
         state.selectedNodes = state.selectedNodes.filter(n => n.fullPath !== node.fullPath);
-    }
+    },
+    [ADD_ERROR](state, error) {
+        if (typeof error === 'string') {
+            state.errors.push({
+                message: error
+            });
+        } else {
+            state.errors.push(error);
+        }
+    },
+    [REMOVE_ERROR](state, errorIndex) {
+        state.errors.splice(errorIndex, 1);
+    },
 }
 
 export default {

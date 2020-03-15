@@ -111,9 +111,8 @@
             },
 
             copyChildrenList(node) {
-                const fullName = node.fullPath;
                 let valueToCopy;
-                node.children.forEach((v, k) => {
+                node.children.forEach((v) => {
                     if (valueToCopy) {
                         valueToCopy += "\r\n" + v.fullPath;
                     } else {
@@ -156,7 +155,6 @@
 
             async refresh() {
                 this.loading = true;
-                let self = this;
                 this.nodes = []
                 const data = await this.$store.dispatch(FETCH_ENTRY_POINTS, {
                     filter: this.filter,
@@ -176,14 +174,10 @@
                     return n;
                 });
             },
-
-            dismissErrorMessage: function(errorIndex) {
-                this.dataSource.errors.splice(errorIndex, 1);
-            }
         },
 
         created() {
-            this.$store.subscribe((mutation, state) => {
+            this.$store.subscribe((mutation) => {
                 if (mutation.type === UNSELECT_NODE) {
                     const deletedNode = mutation.payload
                     if (deletedNode.level === 0) {
@@ -192,7 +186,7 @@
                         // finding the parent node of the deleted node
                         let parentNode = null;
                         let treeToSearch = this.nodes;
-                        deletedNode.fullPath.split(':').slice(0, -1).forEach((path, idx) => {
+                        deletedNode.fullPath.split(':').slice(0, -1).forEach((path) => {
                             parentNode = treeToSearch.find(n => n.name === path);
                             if (parentNode && parentNode.children) {
                                 treeToSearch = parentNode.children;
@@ -212,13 +206,6 @@
         margin-right: 15px;
         width: 200px;
         display: inline-block;
-    }
-
-    .alerts-container {
-        position: fixed;
-        z-index: 9999;
-        top: 80px;
-        right: 20px;
     }
 
     div#entrypoints {
