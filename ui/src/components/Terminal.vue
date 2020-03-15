@@ -30,7 +30,7 @@
                             @click="changeNode(item)"
                             v-for="(item, index) in clusterNodesInfo"
                     >
-                        <v-list-item-title>{{ item.ip }} ({{item.role}})</v-list-item-title>
+                        <v-list-item-title>{{ item.name }} ({{item.role}})</v-list-item-title>
                     </v-list-item>
                 </v-list>
             </v-menu>

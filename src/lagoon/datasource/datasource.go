@@ -2,7 +2,6 @@ package datasource
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"time"
 )
@@ -78,7 +77,38 @@ type StreamInfos struct {
 type Filter struct {
 }
 
-var vendors = []Vendor{}
+type ClusterNode struct {
+	Id      string   `json:"id"`
+	Server  string   `json:"server"`
+	Name    string   `json:"name"`
+	Role    string   `json:"role"`
+	Masters []string `json:"masters"`
+}
+
+type Cluster struct {
+	Nodes []ClusterNode `json:"nodes"`
+}
+
+type StateSection struct {
+	Name   string                 `json:"name"`
+	Values map[string]interface{} `json:"values"`
+}
+
+type NodeState struct {
+	NodeId        string         `json:"nodeId"`
+	StateSections []StateSection `json:"sections"`
+}
+
+type ClusterState struct {
+	Timestamp     time.Time      `json:"timestamp"`
+	NodeStates    []NodeState    `json:"nodeStates"`
+	StateSections []StateSection `json:"sections"`
+}
+
+var (
+	ErrUnkownDatasource = errors.New("the specified kind of datasource is not known")
+	vendors             = []Vendor{}
+)
 
 // DeclareImplementation allows to the vendor plugins to register themselves at initialization time.
 func DeclareImplementation(vendor Vendor) {
@@ -99,7 +129,7 @@ func CreateDataSource(source *DataSourceDescriptor) (DataSource, error) {
 	if err != nil {
 		log.Printf("ERROR: %s\n", err.Error())
 	} else if dataSource == nil {
-		err = errors.New(fmt.Sprintf("Vendor %s is unknown", source.Vendor))
+		err = ErrUnkownDatasource
 		log.Printf("ERROR: %s\n", err.Error())
 	} else {
 
@@ -147,8 +177,8 @@ type DataSource interface {
 	ExecuteCommand(args []interface{}, nodeID string) (interface{}, error)
 
 	// GetInfos provides essential information about the data source.
-	GetInfos() (interface{}, error)
+	GetInfos() (Cluster, error)
 
 	// GetStatus provides essential status and health information about the data source.
-	GetStatus() (interface{}, error)
+	GetStatus() (ClusterState, error)
 }

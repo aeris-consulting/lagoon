@@ -48,17 +48,147 @@ func (c *RedisVendor) CreateDataSource(source *datasource.DataSourceDescriptor) 
 	return &datasource, err
 }
 
-func (c *RedisClient) GetInfos() (interface{}, error) {
+func (c *RedisClient) GetInfos() (datasource.Cluster, error) {
 	switch c.client.(type) {
 	case *redis.ClusterClient:
-		return c.client.ClusterInfo().Result()
+		client := c.client.(*redis.ClusterClient)
+		return getClusterInfos(client)
 	default:
-		return c.client.Info().Result()
+		return datasource.Cluster{}, nil
 	}
 }
 
-func (c *RedisClient) GetStatus() (interface{}, error) {
-	return c.GetInfos()
+// getClusterInfos returns the list of nodes of the server.
+func getClusterInfos(c *redis.ClusterClient) (datasource.Cluster, error) {
+	result := []datasource.ClusterNode{}
+
+	clusterNodes, err := c.ClusterNodes().Result()
+	if err != nil {
+		return datasource.Cluster{}, err
+	}
+
+	for _, i := range strings.Split(clusterNodes, "\n") {
+		if i != "" {
+			values := strings.Split(i, " ")
+			node := datasource.ClusterNode{}
+			node.Id = values[0]                          // Id of the node.
+			node.Server = values[1]                      // Announced IP and normal port
+			node.Name = strings.Split(values[1], "@")[0] // Announced IP and normal port and cluster bus port
+			role := strings.Split(values[2], ",")        // Role of the node.
+			node.Role = role[len(role)-1]
+			if node.Role == "slave" { // When role is slave, next value is the ID of the master.
+				node.Masters = []string{values[3]}
+			}
+			result = append(result, node)
+		}
+	}
+	return datasource.Cluster{result}, nil
+}
+
+func (c *RedisClient) GetStatus() (datasource.ClusterState, error) {
+	switch c.client.(type) {
+	case *redis.ClusterClient:
+		client := c.client.(*redis.ClusterClient)
+		return getClusterStatus(client)
+	default:
+		result := datasource.ClusterState{
+			Timestamp:  time.Now(),
+			NodeStates: []datasource.NodeState{},
+		}
+
+		nodeState := datasource.NodeState{
+			NodeId:        "",
+			StateSections: []datasource.StateSection{},
+		}
+		client := c.client.(*redis.Client)
+		err := getNodeInfo(client, &nodeState)
+		if err != nil {
+			return result, nil
+		}
+		result.NodeStates = append(result.NodeStates, nodeState)
+		return result, nil
+	}
+}
+
+// getClusterStatus returns the overall status of the cluster and the individual of each node.
+func getClusterStatus(c *redis.ClusterClient) (datasource.ClusterState, error) {
+	result := datasource.ClusterState{
+		Timestamp:     time.Now(),
+		NodeStates:    []datasource.NodeState{},
+		StateSections: []datasource.StateSection{},
+	}
+
+	// First collect the infos at the cluster level.
+	clusterInfos, err := c.ClusterInfo().Result()
+	if err != nil {
+		return result, err
+	}
+
+	clusterSection := datasource.StateSection{
+		Name:   "Cluster",
+		Values: make(map[string]interface{}),
+	}
+	for _, i := range strings.Split(clusterInfos, "\r\n") {
+		convertAndPutValue(i, clusterSection.Values)
+	}
+	result.StateSections = append(result.StateSections, clusterSection)
+
+	// Then collect at the node level.
+	err = c.ForEachNode(func(nodeClient *redis.Client) error {
+		id, err := nodeClient.Do("cluster", "myid").String()
+		if err == nil {
+			nodeState := datasource.NodeState{
+				NodeId:        id,
+				StateSections: []datasource.StateSection{},
+			}
+			err := getNodeInfo(nodeClient, &nodeState)
+			if err != nil {
+				return err
+			}
+			result.NodeStates = append(result.NodeStates, nodeState)
+		}
+		return err
+	})
+	return result, err
+}
+
+func getNodeInfo(nodeClient *redis.Client, nodeState *datasource.NodeState) error {
+	nodeInfos, err := nodeClient.Info().Result()
+	if err != nil {
+		return err
+	}
+	section := datasource.StateSection{}
+	for _, v := range strings.Split(nodeInfos, "\r\n") {
+		if v != "" {
+			if v[0] == '#' {
+				if section.Name != "" {
+					nodeState.StateSections = append(nodeState.StateSections, section)
+				}
+				section = datasource.StateSection{
+					Name:   strings.SplitN(v, " ", 2)[1],
+					Values: make(map[string]interface{}),
+				}
+			} else {
+				convertAndPutValue(v, section.Values)
+			}
+		}
+	}
+	if section.Name != "" {
+		nodeState.StateSections = append(nodeState.StateSections, section)
+	}
+	return nil
+}
+
+func convertAndPutValue(v string, section map[string]interface{}) {
+	values := strings.Split(v, ":")
+	if len(values) >= 2 { // Eliminate prefixes like "cluster info:"
+		numValue, err := strconv.Atoi(values[len(values)-1])
+		if err == nil {
+			section[values[len(values)-2]] = numValue
+		} else {
+			section[values[len(values)-2]] = values[len(values)-1]
+		}
+	}
 }
 
 func (c *RedisClient) Open() error {
@@ -351,18 +481,11 @@ func (c *RedisClient) scanAllNodes(scanFilter string, regexFilter *regexp2.Regex
 	switch client := c.client.(type) {
 	case *redis.ClusterClient:
 		mutex := sync.Mutex{}
-		loopError := client.ForEachNode(func(node *redis.Client) error {
-			roleResult, err := node.Do("role").Result()
-			if err == nil {
-				role := (roleResult.([]interface{})[0]).(string)
-				if "master" == strings.ToLower(role) {
-					id := node.Do("cluster", "myid").Val()
-					log.Printf("Scanning keys on master node %+v\n", id)
-					count, err := c.scanOneNode(node, false, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
-					scannedKeyCount = scannedKeyCount + count
-					return err
-				}
-			}
+		loopError := client.ForEachMaster(func(node *redis.Client) error {
+			id := node.Do("cluster", "myid").Val()
+			log.Printf("Scanning keys on master node %+v\n", id)
+			count, err := c.scanOneNode(node, false, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
+			scannedKeyCount = scannedKeyCount + count
 			return err
 		})
 
@@ -893,7 +1016,7 @@ func (c *RedisClient) processCmd(cmd redis.Cmder, nodeID string) {
 			v.Process(cmd)
 		} else {
 			v.ForEachNode(func(client *redis.Client) error {
-				myIDResult, err := client.Do("CLUSTER", "MYID").Result()
+				myIDResult, err := client.Do("cluster", "myid").Result()
 				if err == nil {
 					myID := (myIDResult).(string)
 					if myID == nodeID {
