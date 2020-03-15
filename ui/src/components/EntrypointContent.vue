@@ -126,7 +126,7 @@
 </template>
 <script>
     import EventBus from '../eventBus';
-    import JsonHelper from '../helpers/jsonHelper';
+    import JsonHelper from '../helpers/JsonHelper';
     import { FETCH_NODE_DETAILS, DELETE_NODE } from '../store/actions.type';
 
     const humanizeDuration = require('humanize-duration');
