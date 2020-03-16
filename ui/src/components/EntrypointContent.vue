@@ -186,7 +186,7 @@
             },
 
             erase: function () {
-                this.$emit('display-modal', {
+                EventBus.$emit('display-modal', {
                     message: 'Are you sure you want to delete the content?',
                     yesHandler: () => {
                         this.$store.dispatch(DELETE_NODE, this.node)
@@ -209,7 +209,7 @@
 
         computed: {
             datasource() {
-                return this.$store.getters.getSelectedDatasource()
+                return this.$store.getters.getSelected()
             },
             timeToLive: function () {
                 if (this.nodeDetails && this.nodeDetails.info.timeToLive && this.nodeDetails.info.timeToLive > 0) {

@@ -26,8 +26,7 @@
                     class="entrypoint-list-container"
                     splitpanes-min="20"
                     splitpanes-size="30">
-                    <entrypoint-list
-                        @display-modal="showConfirmation"></entrypoint-list>
+                    <entrypoint-list></entrypoint-list>
                 </div>
                 <div class="details-container" 
                     splitpanes-size="70">
@@ -44,7 +43,6 @@
                                 </v-tab>
                                 <v-tab-item :key="n.fullPath + '-tab-item'">
                                     <entrypoint-content
-                                        @display-modal="showConfirmation"
                                         :node="n"></entrypoint-content>
                                 </v-tab-item>
                             </template>
@@ -90,10 +88,6 @@
         },
 
         methods: {
-            showConfirmation: function (event) {
-                this.$emit('display-modal', event);
-            },
-
             refresh() {
                 this.$store.dispatch(FETCH_DATASOURCE)
             },

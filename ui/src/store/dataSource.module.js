@@ -1,19 +1,21 @@
 import {
-    SET_DATASOURCE,
     FETCH_DATASOURCE,
     FETCH_ENTRY_POINTS,
-    SET_ENTRY_POINTS,
     SELECT_DATASOURCE,
     SELECT_NODE,
-    SET_SELECTED_NODE,
-    SET_SELECTED_DATASOURCE,
     FETCH_NODE_DETAILS,
     DELETE_NODE,
-    UNSELECT_NODE,
-    ADD_ERROR,
-    REMOVE_ERROR,
     DISSMISS_ERROR
 } from './actions.type';
+import {
+    ADD_ERROR,
+    REMOVE_ERROR,
+    SET_DATASOURCE,
+    SET_SELECTED_DATASOURCE,
+    SET_ENTRY_POINTS,
+    SET_SELECTED_NODE,
+    UNSELECT_NODE
+} from './mutations.type';
 
 import { DatasourcesService } from '../services/api.service'
 
@@ -28,7 +30,7 @@ const initialState = {
 const state = { ...initialState }
 
 const getters = {
-    getSelectedDatasource: (state) => () => {
+    getSelected: (state) => () => {
         return state.datasources.find(datasource => datasource.id === state.selectedDatasourceId)
     }
 }
@@ -46,7 +48,7 @@ export const actions = {
         })
     },
     [FETCH_NODE_DETAILS](context, node) {
-        return DatasourcesService.getNodeDetails(context.getters.getSelectedDatasource(), node)
+        return DatasourcesService.getNodeDetails(context.getters.getSelected(), node)
             .then((details) => {
                 return details
             });

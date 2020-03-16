@@ -36,8 +36,7 @@
             </v-app-bar>
             <div id="content">
                 <data-source
-                        ref="dataSource"
-                    @display-modal="showConfirmation">
+                        ref="dataSource">
                 </data-source>
             </div>
 
@@ -139,6 +138,7 @@
         },
 
         mounted() {
+            EventBus.$on('display-modal', this.showConfirmation)
             EventBus.$on('display-snakebar', this.showSnakebar);
             EventBus.$on('datasource-set', (event) => {
                 // eslint-disable-next-line

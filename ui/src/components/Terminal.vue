@@ -60,7 +60,7 @@
         name: 'terminal',
         computed: {
             datasource() {
-                return this.$store.getters.getSelectedDatasource()
+                return this.$store.getters.getSelected()
             }
         },
         data() {

@@ -1,18 +1,5 @@
 <template>
     <div id="entrypoints">
-        <div class="alerts-container">
-            <!-- <v-alert
-                :key="i" class="errors" v-for="(error, i) in dataSource.errors"
-                :value="true"
-                @input="dismissErrorMessage(i)"
-                border="left"
-                close-text="Close Alert"
-                type="error"
-                dark
-                dismissible>
-                {{ error.message }}
-            </v-alert> -->
-        </div>
         <div class="filter-panel">
             <div>
                 <div class="filter-container">
@@ -66,8 +53,9 @@
 </template>
 
 <script>
-    import EventBus from '../eventBus'
-    import { FETCH_ENTRY_POINTS, SELECT_NODE, UNSELECT_NODE, DELETE_NODE } from '../store/actions.type';
+    import EventBus from '../eventBus';
+    import { FETCH_ENTRY_POINTS, SELECT_NODE, DELETE_NODE } from '../store/actions.type';
+    import { UNSELECT_NODE } from '../store/mutations.type';
 
     export default {
         name: 'EntrypointList',
@@ -78,7 +66,7 @@
 
         computed: {
             datasource() {
-                return this.$store.getters.getSelectedDatasource()
+                return this.$store.getters.getSelected()
             }
         },
 
@@ -91,10 +79,6 @@
         },
 
         methods: {
-            showConfirmation: function (event) {
-                this.$emit('display-modal', event);
-            },
-
             display(node) {
                 if (node.hasContent) {
                     this.$store.dispatch(SELECT_NODE, node)
@@ -102,7 +86,7 @@
             },
 
             deleteChildren(node) {
-                this.$emit('display-modal', {
+                EventBus.$emit('display-modal', {
                     message: 'Are you sure you want to delete the content?',
                     yesHandler: () => {
                         this.$store.dispatch(DELETE_NODE, node)
