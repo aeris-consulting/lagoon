@@ -73,7 +73,7 @@
 
         computed: mapState({
             selectedDatasourceId: state => state.datasource.selectedDatasourceId,
-            errors: state => state.datasource.errors,
+            errors: state => state.error.errors,
         }),
 
         data() {

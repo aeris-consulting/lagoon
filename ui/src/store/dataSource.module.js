@@ -4,17 +4,15 @@ import {
     SELECT_DATASOURCE,
     SELECT_NODE,
     FETCH_NODE_DETAILS,
-    DELETE_NODE,
-    DISSMISS_ERROR
+    DELETE_NODE
 } from './actions.type';
 import {
-    ADD_ERROR,
-    REMOVE_ERROR,
     SET_DATASOURCE,
     SET_SELECTED_DATASOURCE,
     SET_ENTRY_POINTS,
     SET_SELECTED_NODE,
-    UNSELECT_NODE
+    UNSELECT_NODE,
+    ADD_ERROR
 } from './mutations.type';
 
 import { DatasourcesService } from '../services/api.service'
@@ -23,8 +21,7 @@ const initialState = {
     selectedDatasourceId: null,
     selectedNodes: [],
     datasources: [],
-    entryPoints: [],
-    errors: []
+    entryPoints: []
 }
 
 const state = { ...initialState }
@@ -36,9 +33,6 @@ const getters = {
 }
 
 export const actions = {
-    [DISSMISS_ERROR](context, errorIndex) {
-        context.commit(REMOVE_ERROR, errorIndex);
-    },
     [FETCH_DATASOURCE](context) {
         return DatasourcesService.getDatasources().then((data) => {
             context.commit(SET_DATASOURCE, data.datasources);
@@ -140,19 +134,7 @@ export const mutations = {
     },
     [UNSELECT_NODE](state, node) {
         state.selectedNodes = state.selectedNodes.filter(n => n.fullPath !== node.fullPath);
-    },
-    [ADD_ERROR](state, error) {
-        if (typeof error === 'string') {
-            state.errors.push({
-                message: error
-            });
-        } else {
-            state.errors.push(error);
-        }
-    },
-    [REMOVE_ERROR](state, errorIndex) {
-        state.errors.splice(errorIndex, 1);
-    },
+    }
 }
 
 export default {

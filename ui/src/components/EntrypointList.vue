@@ -137,26 +137,28 @@
                 })
             },
 
-            async refresh() {
+            refresh() {
                 this.loading = true;
                 this.nodes = []
-                const data = await this.$store.dispatch(FETCH_ENTRY_POINTS, {
+                this.$store.dispatch(FETCH_ENTRY_POINTS, {
                     filter: this.filter,
                     entrypointPrefix: null,
                     minLevel: 0,
                     maxLevel: 0,
-                });
-
-                this.loading = false;
-                this.nodes = data.map(n => {
-                    if (n.length > 0) {
-                        n.children = []
-                    }
-                    n.name = n.path
-                    n.fullPath = n.path
-                    n.level = 0
-                    return n;
-                });
+                }).then(data => {
+                    this.loading = false;
+                    this.nodes = data.map(n => {
+                        if (n.length > 0) {
+                            n.children = []
+                        }
+                        n.name = n.path
+                        n.fullPath = n.path
+                        n.level = 0
+                        return n;
+                    });
+                }).catch(() => {
+                    this.loading = false;
+                })
             },
         },
 
