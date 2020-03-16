@@ -1,9 +1,9 @@
 <template>
     <div>
-        <div v-if="selectedDatasource === null">
+        <div v-if="selectedDatasourceId === null">
             <v-btn @click="refresh()" color="primary">Refresh data sources</v-btn>
 
-            <div class="datasources" v-if="datasources !== null && datasources.length > 0">
+            <div class="datasources" v-if="datasources && datasources.length > 0">
                 <v-list>
                     <v-list-item
                             :key="datasource.id"
@@ -26,28 +26,24 @@
                     class="entrypoint-list-container"
                     splitpanes-min="20"
                     splitpanes-size="30">
-                    <entrypoint-list
-                                    @display-modal="showConfirmation"
-                                    v-bind:dataSource="selectedDatasource"></entrypoint-list>
+                    <entrypoint-list></entrypoint-list>
                 </div>
-                <div    class="details-container" 
+                <div class="details-container" 
                     splitpanes-size="70">
-                    <template v-if="selectedDatasource.selectedNodes.length > 0">
+                    <template v-if="selectedNodes.length > 0">
                         <v-tabs
                             splitpanes-size="70"
                             background-color="primary"
                             dark>
-                            <template v-for="n in selectedDatasource.selectedNodes">
-                                <v-tab :key="n.getFullName()">
-                                    <span class="tab-title" :title="n.getFullName()">
-                                        {{ n.getFullName() }}
+                            <template v-for="n in selectedNodes">
+                                <v-tab :key="n.fullPath">
+                                    <span class="tab-title" :title="n.fullPath">
+                                        {{ n.fullPath }}
                                     </span>
                                 </v-tab>
-                                <v-tab-item :key="n.getFullName() + '-tab-item'">
+                                <v-tab-item :key="n.fullPath + '-tab-item'">
                                     <entrypoint-content
-                                                        @display-modal="showConfirmation"
-                                                        v-bind:dataSource="selectedDatasource" v-bind:node="n"
-                                                        ></entrypoint-content>
+                                        :node="n"></entrypoint-content>
                                 </v-tab-item>
                             </template>
                         </v-tabs>
@@ -62,56 +58,42 @@
         </div>
 
         <terminal
-                :dataSource="selectedDatasource"
-                v-if="selectedDatasource">
+            v-if="selectedDatasourceId">
         </terminal>
     </div>
 </template>
 
 <script>
-    import axios from 'axios';
     import EntrypointList from "./EntrypointList";
     import EntrypointContent from "./EntrypointContent";
     import Terminal from './Terminal.vue';
-    import DataSource from "../models/DataSource";
     import Splitpanes from 'splitpanes'
-    import EventBus from '../eventBus'
-    import _ from 'lodash';
+    import { mapState } from 'vuex'
+    import { FETCH_DATASOURCE, SELECT_DATASOURCE } from '../store/actions.type'
 
     export default {
         name: 'DataSourceList',
         components: {EntrypointList, EntrypointContent, Splitpanes, Terminal},
 
+        computed: mapState({
+            datasources: state => state.datasource.datasources,
+            selectedDatasourceId: state => state.datasource.selectedDatasourceId,
+            selectedNodes: state => state.datasource.selectedNodes
+        }),
+
         data() {
             return {
-                datasources: [],
-                errors: [],
-                selectedDatasource: null,
+                errors: []
             }
         },
 
         methods: {
-            showConfirmation: function (event) {
-                this.$emit('display-modal', event);
-            },
-
-            refresh: function () {
-                let root = '..';
-                if (!_.isNil(process) && !_.isNil(process.env) && !_.isNil(process.env.VUE_APP_API_BASE_URL)) {
-                    root = process.env.VUE_APP_API_BASE_URL;
-                }
-                axios.get(root + '/datasource')
-                    .then(response => {
-                        this.datasources = response.data.datasources;
-                    })
-                    .catch(e => {
-                        this.errors.push(e)
-                    });
+            refresh() {
+                this.$store.dispatch(FETCH_DATASOURCE)
             },
 
             select: function (datasource) {
-                EventBus.$emit('datasource-set', {datasource: datasource});
-                this.selectedDatasource = new DataSource(datasource.id, datasource.readonly, '');
+                this.$store.dispatch(SELECT_DATASOURCE, datasource.id)
             }
         },
 
