@@ -232,13 +232,11 @@
 
         created() {
             let node = this.node;
-            node.contentComponent = self;
             this.refresh();
         },
 
         beforeDestroy() {
             this.stopObserve();
-            this.node.contentComponent = null;
         }
     }
 </script>

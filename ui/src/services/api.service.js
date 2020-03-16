@@ -49,7 +49,7 @@ export const ApiService = {
 
 export const DatasourcesService = {
   async executeCommand(commands, nodeId, datasourceId) {
-    return axios.post(`data/${datasourceId}/command`, {args: commands, nodeId: nodeId})
+    return ApiService.post(`data/${datasourceId}/command`, {args: commands, nodeId: nodeId})
         .then(response => {
             return response.data;
         }).catch(e => {
