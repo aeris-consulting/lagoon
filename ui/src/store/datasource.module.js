@@ -1,21 +1,21 @@
 import {
+    DELETE_NODE,
     FETCH_DATASOURCE,
     FETCH_ENTRY_POINTS,
-    SELECT_DATASOURCE,
-    SELECT_NODE,
     FETCH_NODE_DETAILS,
-    DELETE_NODE
+    SELECT_DATASOURCE,
+    SELECT_NODE
 } from './actions.type';
 import {
+    ADD_ERROR,
     SET_DATASOURCE,
-    SET_SELECTED_DATASOURCE,
     SET_ENTRY_POINTS,
+    SET_SELECTED_DATASOURCE,
     SET_SELECTED_NODE,
-    UNSELECT_NODE,
-    ADD_ERROR
+    UNSELECT_NODE
 } from './mutations.type';
 
-import { DatasourcesService } from '../services/api.service'
+import {DatasourcesService} from '../services/api.service'
 
 const initialState = {
     selectedDatasourceId: null,
