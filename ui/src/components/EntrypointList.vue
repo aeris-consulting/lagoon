@@ -23,6 +23,7 @@
             <v-treeview
                 :items="nodes"
                 :load-children="fetchEntryPoints"
+                item-key="fullPath"
                 dense
                 transition
             >
@@ -120,12 +121,12 @@
             async fetchEntryPoints(node) {
                 node.children = [];
                 return this.$store.dispatch(FETCH_ENTRY_POINTS, {
-                    filter: `${this.filter},${node.fullPath}*`,
+                    filter: `${this.filter},${node.fullPath}:.*`,
                     entrypointPrefix: node.path,
                     minLevel: node.level + 1,
                     maxLevel: node.level + 1,
                 }).then(data => {
-                    node.children.push(...data.map(n => {
+                    node.children = [...data.map(n => {
                         if (n.length > 0) {
                             n.children = []
                         }
@@ -133,7 +134,7 @@
                         n.fullPath = node.fullPath + ':' + n.path
                         n.level = node.level + 1
                         return n;
-                    }))
+                    })]
                 })
             },
 
