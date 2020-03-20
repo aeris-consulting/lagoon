@@ -28,7 +28,7 @@
                 transition
             >
                 <template v-slot:label="{ item: node, open }">
-                    <span @click="display(node)" :class="{ 'content': node.hasContent }">{{node.path}}</span>
+                    <span @click="display(node)" :class="{ 'content': node.hasContent }">{{node.path}} <span v-if="node.length > 0">({{node.length}})</span></span>
                     <v-btn
                         icon
                         @click="fetchEntryPoints(node)" v-if="node.hasContent && open"
