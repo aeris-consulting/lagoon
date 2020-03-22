@@ -56,8 +56,8 @@ export const actions = {
             .then(() => {
                 context.commit(UNSELECT_NODE, node);
             })
-            .catch(() => {
-
+            .catch((e) => {
+                context.commit(ADD_ERROR, e);
             });
     },
     [SELECT_NODE](context, node) {

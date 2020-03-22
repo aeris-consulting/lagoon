@@ -231,7 +231,6 @@
         },
 
         created() {
-            let node = this.node;
             this.refresh();
         },
 

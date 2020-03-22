@@ -25,46 +25,6 @@
             <entrypoint v-for="(node, index) in nodes" :key="index" :node="node" :filter="filter" :readonly="datasource.readonly">
             </entrypoint>
 
-            <!-- <button @click="fetchEntryPoints(nodes[0])">
-                CLICK ME
-            </button>
-            <div v-for="n in nodes">
-                {{n.fullPath}}
-                <div v-if="n.children && n.children.length > 0">
-                    <div v-for="c in n.children">
-                        {{c.fullPath}}
-                    </div>
-                </div>
-            </div> -->
-
-            <!-- <v-treeview
-                :items="nodes"
-                :load-children="fetchEntryPoints"
-                dense
-                transition
-            >
-                <template v-slot:label="{ item: node, open }">
-                    <span @click="display(node)" :class="{ 'content': node.hasContent }">{{node.path}}</span>
-                    <v-btn
-                        icon
-                        @click="fetchEntryPoints(node)" v-if="node.hasContent && open"
-                        x-small>
-                      <font-awesome-icon icon="sync"/>
-                    </v-btn>
-                    <v-btn 
-                        icon
-                        @click="copyChildrenList(node)" v-if="node.hasContent && open"
-                        x-small>
-                      <font-awesome-icon icon="copy"/>
-                    </v-btn>
-                    <v-btn 
-                        icon
-                        @click="deleteChildren(node)" v-if="!datasource.readonly"
-                        x-small>
-                      <font-awesome-icon icon="trash"/>
-                    </v-btn>
-                </template>
-            </v-treeview> -->
         </div>
     </div>
 </template>
@@ -101,11 +61,6 @@
         },
 
         methods: {
-            display(node) {
-                if (node.hasContent) {
-                    this.$store.dispatch(SELECT_NODE, node)
-                }
-            },
 
             refresh() {
                 this.loading = true;
@@ -136,18 +91,6 @@
                     const deletedNode = mutation.payload
                     if (deletedNode.level === 0) {
                         this.refresh();
-                    } else {
-                        // finding the parent node of the deleted node
-                        let parentNode = null;
-                        let treeToSearch = this.nodes;
-                        deletedNode.fullPath.split(':').slice(0, -1).forEach((path) => {
-                            parentNode = treeToSearch.find(n => n.name === path);
-                            if (parentNode && parentNode.children) {
-                                treeToSearch = parentNode.children;
-                            }
-                        });
-
-                        this.fetchEntryPoints(parentNode);
                     }
                 }
             })

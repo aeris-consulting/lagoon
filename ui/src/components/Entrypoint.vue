@@ -1,9 +1,11 @@
 <template>
     <div id="tree-node">
-        <div class="entrypoint">
-            <font-awesome-icon @click="toggle()" class="icon-left" icon="angle-right"
+        <div class="entrypoint"
+            @mouseover="hover = true"
+            @mouseleave="hover = false">
+            <font-awesome-icon @click="toggle()" class="toggle-icon" icon="angle-right"
                 v-if="node.hasChildren && !isOpen && !loading"/>
-            <font-awesome-icon @click="toggle()" class="icon-left" icon="angle-down"
+            <font-awesome-icon @click="toggle()" class="toggle-icon" icon="angle-down"
                 v-if="node.hasChildren && isOpen && !loading"/>
             <v-progress-circular
                 :size="10"
@@ -12,9 +14,11 @@
                 indeterminate
                 v-if="loading"
             ></v-progress-circular>
-            {{ node.path }} 
-            <span v-if="node.hasChildren">({{node.length}})</span>
-            <span class="entrypoint-actions">
+            <span @click="display()" :class="{ 'content': node.hasContent }">
+                {{ node.path }}
+                <span v-if="node.hasChildren">({{node.length}})</span>
+            </span>
+            <span class="entrypoint-actions" v-if="hover">
                 <v-btn
                     icon
                     @click="fetchEntryPoints(node)" v-if="node.hasChildren && isOpen"
@@ -29,26 +33,23 @@
                 </v-btn>
                 <v-btn 
                     icon
-                    @click="deleteChildren(node)" v-if="!readonly"
+                    @click="deleteChildren(node)" v-if="node.hasContent && !readonly"
                     x-small>
                     <font-awesome-icon icon="trash"/>
                 </v-btn>
             </span>
         </div>
         <div v-if="children && children.length > 0 && isOpen" class="entrypoint-children">
-            <entrypoint v-for="(child, index) in children" :key="index" :node="child" :filter="filter">
+            <entrypoint v-for="child in children" :key="child.path" :node="child" :filter="filter">
             </entrypoint>
         </div>
-        <!-- <div>
-            LOAD MORE
-        </div> -->
     </div>
 </template>
 
 <script>
     import EventBus from '../eventBus';
     import { FETCH_ENTRY_POINTS, SELECT_NODE, DELETE_NODE } from '../store/actions.type';
-    // import { UNSELECT_NODE } from '../store/mutations.type';
+    import { UNSELECT_NODE } from '../store/mutations.type';
 
     export default {
         name: 'entrypoint',
@@ -63,7 +64,8 @@
             return {
                 isOpen: false,
                 children: null,
-                loading: false
+                loading: false,
+                hover: false
             }
         },
 
@@ -73,6 +75,12 @@
                     this.fetchEntryPoints()
                 }
                 this.isOpen = !this.isOpen
+            },
+
+            display() {
+                if (this.node.hasContent) {
+                    this.$store.dispatch(SELECT_NODE, this.node)
+                }
             },
 
             deleteChildren(node) {
@@ -86,7 +94,7 @@
 
             copyChildrenList() {
                 let valueToCopy;
-                this.node.children.forEach((v) => {
+                this.children.forEach((v) => {
                     if (valueToCopy) {
                         valueToCopy += "\r\n" + v.fullPath;
                     } else {
@@ -128,23 +136,36 @@
         },
 
         created() {
+            this.$store.subscribe((mutation) => {
+                if (mutation.type === UNSELECT_NODE) {
+                    const deletedNode = mutation.payload
+                    // finding the parent node of the deleted node
+                    let parentNode = null;
+                    if (this.children && this.children.length) {
+                        let deletedChildNode = this.children.find(c => c.fullPath === deletedNode.fullPath);
+                        if (deletedChildNode) {
+                            this.fetchEntryPoints();
+                        }
+                    }
+                }
+            })
         }
     }
 </script>
 
 <style lang="scss">
-    .entrypoint-children {
-        margin-left: 20px;
-    }
-
-    .entrypoint {
-        .entrypoint-actions {
-            display: none;
+    #tree-node {    
+        .entrypoint-children {
+            margin-left: 20px;
         }
-        &:hover {
-            .entrypoint-actions {
-                display: inline-block;
-            }            
+        .toggle-icon {
+            cursor: pointer;
+        }
+        .content {
+            cursor: pointer;
+            &:hover {
+                text-decoration: underline;
+            }
         }
     }
 </style>
