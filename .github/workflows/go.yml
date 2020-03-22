@@ -23,11 +23,6 @@ jobs:
         run: |
           go get -v -t -d ./...
 
-      - name: Run unit tests
-        working-directory: ./src/lagoon
-        run: |
-          go test -v ./...
-
       - name: Build
         working-directory: ./src/lagoon
         run: go build -v .
