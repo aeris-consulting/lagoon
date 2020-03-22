@@ -29,7 +29,7 @@ const state = { ...initialState }
 const getters = {
     getSelected: (state) => () => {
         return state.datasources.find(datasource => datasource.id === state.selectedDatasourceId)
-    }
+    },
 }
 
 export const actions = {

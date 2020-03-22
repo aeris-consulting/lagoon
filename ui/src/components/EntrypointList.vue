@@ -20,7 +20,24 @@
 
         <div class="entrypoint-children-panel" 
             v-if="nodes && nodes.length > 0">
-            <v-treeview
+            
+
+            <entrypoint v-for="(node, index) in nodes" :key="index" :node="node" :filter="filter" :readonly="datasource.readonly">
+            </entrypoint>
+
+            <!-- <button @click="fetchEntryPoints(nodes[0])">
+                CLICK ME
+            </button>
+            <div v-for="n in nodes">
+                {{n.fullPath}}
+                <div v-if="n.children && n.children.length > 0">
+                    <div v-for="c in n.children">
+                        {{c.fullPath}}
+                    </div>
+                </div>
+            </div> -->
+
+            <!-- <v-treeview
                 :items="nodes"
                 :load-children="fetchEntryPoints"
                 dense
@@ -47,7 +64,7 @@
                       <font-awesome-icon icon="trash"/>
                     </v-btn>
                 </template>
-            </v-treeview>
+            </v-treeview> -->
         </div>
     </div>
 </template>
@@ -56,9 +73,14 @@
     import EventBus from '../eventBus';
     import { FETCH_ENTRY_POINTS, SELECT_NODE, DELETE_NODE } from '../store/actions.type';
     import { UNSELECT_NODE } from '../store/mutations.type';
+    import Entrypoint from './Entrypoint.vue';
 
     export default {
         name: 'EntrypointList',
+
+        components: {
+            Entrypoint
+        },
 
         props: {
             datasourceId: String,
@@ -85,58 +107,6 @@
                 }
             },
 
-            deleteChildren(node) {
-                EventBus.$emit('display-modal', {
-                    message: 'Are you sure you want to delete the content?',
-                    yesHandler: () => {
-                        this.$store.dispatch(DELETE_NODE, node)
-                    }, noHandler: () => {}
-                });
-            },
-
-            copyChildrenList(node) {
-                let valueToCopy;
-                node.children.forEach((v) => {
-                    if (valueToCopy) {
-                        valueToCopy += "\r\n" + v.fullPath;
-                    } else {
-                        valueToCopy = v.fullPath;
-                    }
-                });
-
-                if (valueToCopy) {
-                    this.$copyText(valueToCopy).then(function () {
-                        EventBus.$emit('display-snakebar', {
-                            message: 'The list of direct children was copied to your clipboard'
-                        });
-                    }, function () {
-                        EventBus.$emit('display-snakebar', {
-                            message: 'The list of direct children could not be copied to your clipboard!!!'
-                        });
-                    })
-                }
-            },
-
-            async fetchEntryPoints(node) {
-                node.children = [];
-                return this.$store.dispatch(FETCH_ENTRY_POINTS, {
-                    filter: `${this.filter},${node.fullPath}*`,
-                    entrypointPrefix: node.path,
-                    minLevel: node.level + 1,
-                    maxLevel: node.level + 1,
-                }).then(data => {
-                    node.children.push(...data.map(n => {
-                        if (n.length > 0) {
-                            n.children = []
-                        }
-                        n.name = n.path
-                        n.fullPath = node.fullPath + ':' + n.path
-                        n.level = node.level + 1
-                        return n;
-                    }))
-                })
-            },
-
             refresh() {
                 this.loading = true;
                 this.nodes = []
@@ -148,9 +118,7 @@
                 }).then(data => {
                     this.loading = false;
                     this.nodes = data.map(n => {
-                        if (n.length > 0) {
-                            n.children = []
-                        }
+                        n.hasChildren = n.length > 0 ? true : false
                         n.name = n.path
                         n.fullPath = n.path
                         n.level = 0
