@@ -139,8 +139,6 @@
             this.$store.subscribe((mutation) => {
                 if (mutation.type === UNSELECT_NODE) {
                     const deletedNode = mutation.payload
-                    // finding the parent node of the deleted node
-                    let parentNode = null;
                     if (this.children && this.children.length) {
                         let deletedChildNode = this.children.find(c => c.fullPath === deletedNode.fullPath);
                         if (deletedChildNode) {
@@ -155,6 +153,7 @@
 
 <style lang="scss">
     #tree-node {    
+        font-family: "Ubuntu Mono";
         .entrypoint-children {
             margin-left: 20px;
         }
