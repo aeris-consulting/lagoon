@@ -118,7 +118,7 @@
             fetchEntryPoints() {
                 this.loading = true
                 this.$store.dispatch(FETCH_ENTRY_POINTS, {
-                    filter: `${this.filter},${this.node.fullPath}:*`,
+                    filter: `${this.node.fullPath}:${this.filter}*`,
                     entrypointPrefix: this.node.path,
                     minLevel: this.node.level + 1,
                     maxLevel: this.node.level + 1,
@@ -159,6 +159,8 @@
         }
         .toggle-icon {
             cursor: pointer;
+            color: rgb(172, 172, 172);
+            font-size: 13px;
         }
         .content {
             cursor: pointer;
