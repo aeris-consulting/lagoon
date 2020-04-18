@@ -124,7 +124,7 @@
                     maxLevel: this.node.level + 1,
                 }).then(data => {
                     this.children = Object.freeze([...data.map(n => {
-                        n.hasChildren = n.length > 0 ? true : false
+                        n.hasChildren = n.length > 0
                         n.name = n.path
                         n.fullPath = this.node.fullPath + ':' + n.path
                         n.level = this.node.level + 1

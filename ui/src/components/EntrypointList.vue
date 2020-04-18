@@ -73,7 +73,7 @@
                 }).then(data => {
                     this.loading = false;
                     this.nodes = data.map(n => {
-                        n.hasChildren = n.length > 0 ? true : false
+                        n.hasChildren = n.length > 0
                         n.name = n.path
                         n.fullPath = n.path
                         n.level = 0
