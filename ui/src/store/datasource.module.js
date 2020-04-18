@@ -15,7 +15,8 @@ import {
     UNSELECT_NODE
 } from './mutations.type';
 
-import {DatasourcesService} from '../services/api.service'
+import { DatasourcesService } from '../services/api.service'
+import FilterHelper from '../helpers/filterHelper'
 
 const initialState = {
     selectedDatasourceId: null,
@@ -26,8 +27,8 @@ const initialState = {
 
 const state = { ...initialState }
 
-const getters = {
-    getSelected: (state) => () => {
+export const getters = {
+    getSelected(state) {
         return state.datasources.find(datasource => datasource.id === state.selectedDatasourceId)
     },
 }
@@ -42,7 +43,7 @@ export const actions = {
         })
     },
     [FETCH_NODE_DETAILS](context, node) {
-        return DatasourcesService.getNodeDetails(context.getters.getSelected(), node)
+        return DatasourcesService.getNodeDetails(context.getters.getSelected, node)
             .then((details) => {
                 return details
             });
@@ -66,35 +67,8 @@ export const actions = {
     },
     [FETCH_ENTRY_POINTS](context, request) {
         const {filter, minLevel, maxLevel} = request;
-        let { entrypointPrefix } = request;
-        let actualFilter;
-        let overallFilter = ('*' + filter + '*').replace(/[*]+/g, '*');
-
-        if (!entrypointPrefix) {
-            actualFilter = ('*' + filter + '*').replace(/[*]+/g, '*');
-        } else {
-            let entrypointRegex = new RegExp(entrypointPrefix);
-            entrypointPrefix = entrypointPrefix + ':*';
-            let overallRegex = new RegExp(overallFilter
-                .replace(/^[*]+/g, '')
-                .replace(/[*]+$/g, '')
-                .replace(/[*]+/g, '.*')
-            );
-
-            if (overallRegex.test(entrypointPrefix)) {
-                actualFilter = entrypointPrefix;
-            } else if (entrypointRegex.test(overallFilter
-                .replace(/^[*]+/g, '')
-                .replace(/[*]+$/g, '')
-            )) {
-                actualFilter = overallFilter;
-            } else {
-                actualFilter = overallFilter + ','
-                    + entrypointPrefix
-                        .replace(/[*]+/g, '.*')
-                        .replace(/[*]+/g, '*');
-            }
-        }
+        const { entrypointPrefix } = request;
+        const actualFilter = FilterHelper.transformFilter(entrypointPrefix, filter)
         return new Promise((resolve, reject) => {
             DatasourcesService.listEntryPoints({
                 id: context.state.selectedDatasourceId,

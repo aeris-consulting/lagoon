@@ -209,7 +209,7 @@
 
         computed: {
             datasource() {
-                return this.$store.getters.getSelected()
+                return this.$store.getters.getSelected
             },
             timeToLive: function () {
                 if (this.nodeDetails && this.nodeDetails.info.timeToLive && this.nodeDetails.info.timeToLive > 0) {

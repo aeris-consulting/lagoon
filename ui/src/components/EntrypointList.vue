@@ -48,7 +48,7 @@
 
         computed: {
             datasource() {
-                return this.$store.getters.getSelected()
+                return this.$store.getters.getSelected
             }
         },
 
