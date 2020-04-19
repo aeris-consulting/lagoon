@@ -8,14 +8,14 @@ import {
 } from './actions.type';
 import {
     ADD_ERROR,
-    SET_DATASOURCE,
+    SET_DATASOURCES,
     SET_ENTRY_POINTS,
     SET_SELECTED_DATASOURCE,
     SET_SELECTED_NODE,
     UNSELECT_NODE
 } from './mutations.type';
 
-import { DatasourcesService } from '../services/api.service'
+import {DatasourcesService} from '../services/api.service'
 import FilterHelper from '../helpers/filterHelper'
 
 const initialState = {
@@ -36,7 +36,7 @@ export const getters = {
 export const actions = {
     [FETCH_DATASOURCE](context) {
         return DatasourcesService.getDatasources().then((data) => {
-            context.commit(SET_DATASOURCE, data.datasources);
+            context.commit(SET_DATASOURCES, data.datasources);
             return data.datasources;
         }).catch(e => {
             context.commit(ADD_ERROR, e);
@@ -94,7 +94,7 @@ export const actions = {
 }
 
 export const mutations = {
-    [SET_DATASOURCE](state, datasources) {
+    [SET_DATASOURCES](state, datasources) {
         state.datasources = datasources;
     },
     [SET_ENTRY_POINTS](state, entryPoints) {

@@ -20,21 +20,21 @@
             </span>
             <span class="entrypoint-actions" v-if="hover">
                 <v-btn
-                    icon
-                    @click="fetchEntryPoints(node)" v-if="node.hasChildren && isOpen"
-                    x-small>
+                        icon
+                        @click="fetchEntryPoints(node)" v-if="node.hasChildren && isOpen"
+                        x-small>
                     <font-awesome-icon icon="sync"/>
                 </v-btn>
-                <v-btn 
-                    icon
-                    @click="copyChildrenList(node)" v-if="node.hasChildren && isOpen"
-                    x-small>
+                <v-btn
+                        icon
+                        @click="copyChildrenList(node)" v-if="node.hasChildren && isOpen"
+                        x-small>
                     <font-awesome-icon icon="copy"/>
                 </v-btn>
-                <v-btn 
-                    icon
-                    @click="deleteChildren(node)" v-if="node.hasContent && !readonly"
-                    x-small>
+                <v-btn
+                        @click="deleteChildren(node)"
+                        icon v-if="node.hasChildren && !readonly"
+                        x-small>
                     <font-awesome-icon icon="trash"/>
                 </v-btn>
             </span>
@@ -48,8 +48,8 @@
 
 <script>
     import EventBus from '../eventBus';
-    import { FETCH_ENTRY_POINTS, SELECT_NODE, DELETE_NODE } from '../store/actions.type';
-    import { UNSELECT_NODE } from '../store/mutations.type';
+    import {DELETE_NODE, FETCH_ENTRY_POINTS, SELECT_NODE} from '../store/actions.type';
+    import {UNSELECT_NODE} from '../store/mutations.type';
 
     export default {
         name: 'entrypoint',
@@ -118,8 +118,8 @@
             fetchEntryPoints() {
                 this.loading = true
                 this.$store.dispatch(FETCH_ENTRY_POINTS, {
-                    filter: `${this.node.fullPath}:${this.filter}*`,
-                    entrypointPrefix: this.node.path,
+                    filter: `*${this.filter}*`,
+                    entrypointPrefix: this.node.fullPath,
                     minLevel: this.node.level + 1,
                     maxLevel: this.node.level + 1,
                 }).then(data => {

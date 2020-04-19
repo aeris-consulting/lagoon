@@ -61,8 +61,8 @@
 <script>
     import DataSource from './components/DataSource.vue'
     import EventBus from './eventBus'
-    import { mapState } from 'vuex'
-    import { DISSMISS_ERROR } from './store/actions.type'
+    import {mapState} from 'vuex'
+    import {DISSMISS_ERROR} from './store/actions.type'
 
     export default {
         name: 'app-container',

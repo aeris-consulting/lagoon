@@ -4,25 +4,23 @@
             <div>
                 <div class="filter-container">
                     <v-text-field
-                        v-model="filter"
-                        label="Filter"
+                            label="Filter"
+                            v-model="filter"
                     ></v-text-field>
                 </div>
                 <v-btn class="" color="primary" @click="refresh()">List</v-btn>
                 <v-progress-circular
-                    class="loading-circle"
-                    v-if="loading"
-                    indeterminate
-                    color="green">
+                        class="loading-circle"
+                        color="green"
+                        indeterminate
+                        v-if="loading">
                 </v-progress-circular>
             </div>
         </div>
 
-        <div class="entrypoint-children-panel" 
-            v-if="nodes && nodes.length > 0">
-            
-
-            <entrypoint v-for="(node, index) in nodes" :key="index" :node="node" :filter="filter" :readonly="datasource.readonly">
+        <div class="entrypoint-children-panel" v-if="nodes && nodes.length > 0">
+            <entrypoint :filter="filter" :key="index" :node="node" :readonly="datasource.readonly"
+                        v-for="(node, index) in nodes">
             </entrypoint>
 
         </div>
@@ -30,9 +28,8 @@
 </template>
 
 <script>
-    import EventBus from '../eventBus';
-    import { FETCH_ENTRY_POINTS, SELECT_NODE, DELETE_NODE } from '../store/actions.type';
-    import { UNSELECT_NODE } from '../store/mutations.type';
+    import {FETCH_ENTRY_POINTS} from '../store/actions.type';
+    import {UNSELECT_NODE} from '../store/mutations.type';
     import Entrypoint from './Entrypoint.vue';
 
     export default {
