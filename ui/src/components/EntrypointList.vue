@@ -20,34 +20,11 @@
 
         <div class="entrypoint-children-panel" 
             v-if="nodes && nodes.length > 0">
-            <v-treeview
-                :items="nodes"
-                :load-children="fetchEntryPoints"
-                dense
-                transition
-            >
-                <template v-slot:label="{ item: node, open }">
-                    <span @click="display(node)" :class="{ 'content': node.hasContent }">{{node.path}}</span>
-                    <v-btn
-                        icon
-                        @click="fetchEntryPoints(node)" v-if="node.hasContent && open"
-                        x-small>
-                      <font-awesome-icon icon="sync"/>
-                    </v-btn>
-                    <v-btn 
-                        icon
-                        @click="copyChildrenList(node)" v-if="node.hasContent && open"
-                        x-small>
-                      <font-awesome-icon icon="copy"/>
-                    </v-btn>
-                    <v-btn 
-                        icon
-                        @click="deleteChildren(node)" v-if="!datasource.readonly"
-                        x-small>
-                      <font-awesome-icon icon="trash"/>
-                    </v-btn>
-                </template>
-            </v-treeview>
+            
+
+            <entrypoint v-for="(node, index) in nodes" :key="index" :node="node" :filter="filter" :readonly="datasource.readonly">
+            </entrypoint>
+
         </div>
     </div>
 </template>
@@ -56,9 +33,14 @@
     import EventBus from '../eventBus';
     import { FETCH_ENTRY_POINTS, SELECT_NODE, DELETE_NODE } from '../store/actions.type';
     import { UNSELECT_NODE } from '../store/mutations.type';
+    import Entrypoint from './Entrypoint.vue';
 
     export default {
         name: 'EntrypointList',
+
+        components: {
+            Entrypoint
+        },
 
         props: {
             datasourceId: String,
@@ -66,7 +48,7 @@
 
         computed: {
             datasource() {
-                return this.$store.getters.getSelected()
+                return this.$store.getters.getSelected
             }
         },
 
@@ -79,63 +61,6 @@
         },
 
         methods: {
-            display(node) {
-                if (node.hasContent) {
-                    this.$store.dispatch(SELECT_NODE, node)
-                }
-            },
-
-            deleteChildren(node) {
-                EventBus.$emit('display-modal', {
-                    message: 'Are you sure you want to delete the content?',
-                    yesHandler: () => {
-                        this.$store.dispatch(DELETE_NODE, node)
-                    }, noHandler: () => {}
-                });
-            },
-
-            copyChildrenList(node) {
-                let valueToCopy;
-                node.children.forEach((v) => {
-                    if (valueToCopy) {
-                        valueToCopy += "\r\n" + v.fullPath;
-                    } else {
-                        valueToCopy = v.fullPath;
-                    }
-                });
-
-                if (valueToCopy) {
-                    this.$copyText(valueToCopy).then(function () {
-                        EventBus.$emit('display-snakebar', {
-                            message: 'The list of direct children was copied to your clipboard'
-                        });
-                    }, function () {
-                        EventBus.$emit('display-snakebar', {
-                            message: 'The list of direct children could not be copied to your clipboard!!!'
-                        });
-                    })
-                }
-            },
-
-            async fetchEntryPoints(node) {
-                node.children = [];
-                return this.$store.dispatch(FETCH_ENTRY_POINTS, {
-                    filter: `${this.filter},${node.fullPath}*`,
-                    entrypointPrefix: node.path,
-                    minLevel: node.level + 1,
-                    maxLevel: node.level + 1,
-                }).then(data => {
-                    node.children.push(...data.map(n => {
-                        if (n.length > 0) {
-                            n.children = []
-                        }
-                        n.name = n.path
-                        n.fullPath = node.fullPath + ':' + n.path
-                        n.level = node.level + 1
-                        return n;
-                    }))
-                })
-            },
 
             refresh() {
                 this.loading = true;
@@ -148,9 +73,7 @@
                 }).then(data => {
                     this.loading = false;
                     this.nodes = data.map(n => {
-                        if (n.length > 0) {
-                            n.children = []
-                        }
+                        n.hasChildren = n.length > 0
                         n.name = n.path
                         n.fullPath = n.path
                         n.level = 0
@@ -168,18 +91,6 @@
                     const deletedNode = mutation.payload
                     if (deletedNode.level === 0) {
                         this.refresh();
-                    } else {
-                        // finding the parent node of the deleted node
-                        let parentNode = null;
-                        let treeToSearch = this.nodes;
-                        deletedNode.fullPath.split(':').slice(0, -1).forEach((path) => {
-                            parentNode = treeToSearch.find(n => n.name === path);
-                            if (parentNode && parentNode.children) {
-                                treeToSearch = parentNode.children;
-                            }
-                        });
-
-                        this.fetchEntryPoints(parentNode);
                     }
                 }
             })
