@@ -1,18 +1,18 @@
 <template>
     <div id="tree-node">
         <div class="entrypoint"
-            @mouseover="hover = true"
-            @mouseleave="hover = false">
+             @mouseleave="hover = false"
+             @mouseover="hover = true">
             <font-awesome-icon @click="toggle()" class="toggle-icon" icon="angle-right"
-                v-if="node.hasChildren && !isOpen && !loading"/>
+                               v-if="node.hasChildren && !isOpen && !loading"/>
             <font-awesome-icon @click="toggle()" class="toggle-icon" icon="angle-down"
-                v-if="node.hasChildren && isOpen && !loading"/>
+                               v-if="node.hasChildren && isOpen && !loading"/>
             <v-progress-circular
-                :size="10"
-                :width="2"
-                color="primary"
-                indeterminate
-                v-if="loading"
+                    :size="10"
+                    :width="2"
+                    color="primary"
+                    indeterminate
+                    v-if="loading"
             ></v-progress-circular>
             <span @click="display()" :class="{ 'content': node.hasContent }">
                 {{ node.path }}
@@ -21,7 +21,7 @@
             <span class="entrypoint-actions" v-if="hover">
                 <v-btn
                         icon
-                        @click="fetchEntryPoints(node)" v-if="node.hasChildren && isOpen"
+                        @click="fetchEntryPoints()" v-if="node.hasChildren && isOpen"
                         x-small>
                     <font-awesome-icon icon="sync"/>
                 </v-btn>
@@ -48,7 +48,7 @@
 
 <script>
     import EventBus from '../eventBus';
-    import {DELETE_NODE, FETCH_ENTRY_POINTS, SELECT_NODE} from '../store/actions.type';
+    import {DELETE_CHILDREN_NODE, FETCH_ENTRY_POINTS, SELECT_NODE} from '../store/actions.type';
     import {UNSELECT_NODE} from '../store/mutations.type';
 
     export default {
@@ -87,9 +87,29 @@
                 EventBus.$emit('display-modal', {
                     message: 'Are you sure you want to delete the content?',
                     yesHandler: () => {
-                        this.$store.dispatch(DELETE_NODE, node)
-                    }, noHandler: () => {}
+                        this.$store.dispatch(DELETE_CHILDREN_NODE, {
+                            node: node,
+                            refreshTree: () => {
+                                const childrenLengthDifference = node.length
+                                let nodeToRefresh = node
+                                while (nodeToRefresh != null) {
+                                    nodeToRefresh.length -= childrenLengthDifference
+                                    nodeToRefresh.hasChildren = nodeToRefresh.length > 0
+                                    if (!nodeToRefresh.hasChildren && !nodeToRefresh.hasContent) {
+                                        nodeToRefresh.vueComponent.remove()
+                                    }
+                                    nodeToRefresh = nodeToRefresh.parent
+                                }
+                            }
+                        })
+                    }, noHandler: () => {
+                    }
                 });
+            },
+
+            remove() {
+                this.$destroy();
+                this.$el.parentNode.removeChild(this.$el);
             },
 
             copyChildrenList() {
@@ -124,6 +144,7 @@
                     maxLevel: this.node.level + 1,
                 }).then(data => {
                     this.children = Object.freeze([...data.map(n => {
+                        n.parent = this.node
                         n.hasChildren = n.length > 0
                         n.name = n.path
                         n.fullPath = this.node.fullPath + ':' + n.path
@@ -133,6 +154,10 @@
                     this.loading = false
                 })
             },
+        },
+
+        mounted() {
+            this.node.vueComponent = this
         },
 
         created() {
@@ -152,18 +177,22 @@
 </script>
 
 <style lang="scss">
-    #tree-node {    
+    #tree-node {
         font-family: "Ubuntu Mono";
+
         .entrypoint-children {
             margin-left: 20px;
         }
+
         .toggle-icon {
             cursor: pointer;
             color: rgb(172, 172, 172);
             font-size: 13px;
         }
+
         .content {
             cursor: pointer;
+
             &:hover {
                 text-decoration: underline;
             }

@@ -134,9 +134,16 @@ export const DatasourcesService = {
 
   deleteEntrypoint(datasourceId, fullPath) {
     return ApiService.delete(`data/${datasourceId}/entrypoint/${fullPath}`, {format: 'json'})
-      .catch(e => {
-        return Promise.reject(e.response.data.error)
-      })
+        .catch(e => {
+          return Promise.reject(e.response.data.error)
+        })
+  },
+
+  deleteEntrypointChildren(datasourceId, fullPath) {
+    return ApiService.delete(`data/${datasourceId}/entrypoint/${fullPath}/children`, {format: 'json'})
+        .catch(e => {
+          return Promise.reject(e.response.data.error)
+        })
   },
 
   getEntryPointsFromWebsocket(link) {
@@ -144,7 +151,7 @@ export const DatasourcesService = {
     return new Promise((resolve, reject) => {
       let socket = new WebSocket(wsRoot + link);
       socket.onopen = () => {
-        socket.onmessage = ({ data }) => {
+        socket.onmessage = ({data}) => {
           let jsonData = JSON.parse(data);
           if (jsonData.size > 0) {
             receivedValues = receivedValues.concat(jsonData.data);
