@@ -1,18 +1,21 @@
-import { mutations, actions, getters } from '../../../src/store/datasource.module';
-import { testAction } from './store.test.helper';
-import { SET_DATASOURCE } from '../../../src/store/mutations.type'
-import { datasourceResponse } from '../data/api-data'
-import { DatasourcesService } from '../../../src/services/api.service'
+import {actions, getters, mutations} from '../../../src/store/datasource.module';
+import {testAction} from './store.test.helper';
+import {SET_DATASOURCES} from '../../../src/store/mutations.type'
+import {datasourceResponse} from '../data/api-data'
+import {DatasourcesService} from '../../../src/services/api.service'
+
 jest.mock('../../../src/services/api.service');
 
 describe('mutations', () => {
     it('UNSELECT_NODE', () => {
         // given
-        const state = { selectedNodes: [
-            { fullPath: 'path01' },
-            { fullPath: 'path02' }
-        ] }
-        const nodeToUnSelect = { fullPath: 'path01' }
+        const state = {
+            selectedNodes: [
+                {fullPath: 'path01'},
+                {fullPath: 'path02'}
+            ]
+        }
+        const nodeToUnSelect = {fullPath: 'path01'}
 
         // when
         mutations.UNSELECT_NODE(state, nodeToUnSelect)
@@ -31,7 +34,7 @@ describe('actions', () => {
         DatasourcesService.getDatasources.mockResolvedValue(datasourceResponse);
 
         testAction(actions.FETCH_DATASOURCE, null, state, [
-            { type: SET_DATASOURCE, payload: datasourceResponse.datasources}
+            {type: SET_DATASOURCES, payload: datasourceResponse.datasources}
         ], done)
     })
 })

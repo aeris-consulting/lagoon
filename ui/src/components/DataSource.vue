@@ -13,7 +13,8 @@
                             <v-list-item-title>{{ datasource.name }}
                                 <template v-if="datasource.readonly">&nbsp;(Read-only)</template>
                             </v-list-item-title>
-                            <v-list-item-subtitle v-if="datasource.description">{{ datasource.description }}</v-list-item-subtitle>
+                            <v-list-item-subtitle v-if="datasource.description">{{ datasource.description }}
+                            </v-list-item-subtitle>
                         </v-list-item-content>
                     </v-list-item>
                 </v-list>
@@ -22,19 +23,19 @@
 
         <div v-else>
             <splitpanes watchSlots vertical class="splitpanes">
-                <div 
-                    class="entrypoint-list-container"
-                    splitpanes-min="20"
-                    splitpanes-size="30">
+                <div
+                        class="entrypoint-list-container"
+                        splitpanes-min="20"
+                        splitpanes-size="30">
                     <entrypoint-list></entrypoint-list>
                 </div>
-                <div class="details-container" 
-                    splitpanes-size="70">
+                <div class="details-container"
+                     splitpanes-size="70">
                     <template v-if="selectedNodes.length > 0">
                         <v-tabs
-                            splitpanes-size="70"
-                            background-color="primary"
-                            dark>
+                                background-color="primary"
+                                dark
+                                splitpanes-size="70">
                             <template v-for="n in selectedNodes">
                                 <v-tab :key="n.fullPath">
                                     <span class="tab-title" :title="n.fullPath">
@@ -43,13 +44,13 @@
                                 </v-tab>
                                 <v-tab-item :key="n.fullPath + '-tab-item'">
                                     <entrypoint-content
-                                        :node="n"></entrypoint-content>
+                                            :node="n"></entrypoint-content>
                                 </v-tab-item>
                             </template>
                         </v-tabs>
                     </template>
                     <template v-else>
-                        <div >
+                        <div>
                             No node selected
                         </div>
                     </template>
@@ -58,7 +59,7 @@
         </div>
 
         <terminal
-            v-if="selectedDatasourceId">
+                v-if="selectedDatasourceId">
         </terminal>
     </div>
 </template>
@@ -68,8 +69,9 @@
     import EntrypointContent from "./EntrypointContent";
     import Terminal from './Terminal.vue';
     import Splitpanes from 'splitpanes'
-    import { mapState } from 'vuex'
-    import { FETCH_DATASOURCE, SELECT_DATASOURCE } from '../store/actions.type'
+    import {mapState} from 'vuex'
+    import {FETCH_DATASOURCE, SELECT_DATASOURCE} from '../store/actions.type'
+    import EventBus from "../eventBus";
 
     export default {
         name: 'DataSourceList',
@@ -94,6 +96,7 @@
 
             select: function (datasource) {
                 this.$store.dispatch(SELECT_DATASOURCE, datasource.id)
+                EventBus.$emit('datasource-set', {datasource: datasource})
             }
         },
 
