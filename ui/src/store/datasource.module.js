@@ -62,12 +62,8 @@ export const actions = {
                 context.commit(ADD_ERROR, e);
             });
     },
-    [DELETE_CHILDREN_NODE](context, request) {
-        const {node, refreshTree} = request;
+    [DELETE_CHILDREN_NODE](context, node) {
         return DatasourcesService.deleteEntrypointChildren(context.state.selectedDatasourceId, node.fullPath)
-            .then(() => {
-                refreshTree()
-            })
             .catch((e) => {
                 context.commit(ADD_ERROR, e);
             });
