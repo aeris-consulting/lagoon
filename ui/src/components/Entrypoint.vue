@@ -1,18 +1,18 @@
 <template>
     <div id="tree-node">
         <div class="entrypoint"
-            @mouseover="hover = true"
-            @mouseleave="hover = false">
+             @mouseleave="hover = false"
+             @mouseover="hover = true">
             <font-awesome-icon @click="toggle()" class="toggle-icon" icon="angle-right"
-                v-if="node.hasChildren && !isOpen && !loading"/>
+                               v-if="node.hasChildren && !isOpen && !loading"/>
             <font-awesome-icon @click="toggle()" class="toggle-icon" icon="angle-down"
-                v-if="node.hasChildren && isOpen && !loading"/>
+                               v-if="node.hasChildren && isOpen && !loading"/>
             <v-progress-circular
-                :size="10"
-                :width="2"
-                color="primary"
-                indeterminate
-                v-if="loading"
+                    :size="10"
+                    :width="2"
+                    color="primary"
+                    indeterminate
+                    v-if="loading"
             ></v-progress-circular>
             <span @click="display()" :class="{ 'content': node.hasContent }">
                 {{ node.path }}
@@ -21,7 +21,7 @@
             <span class="entrypoint-actions" v-if="hover">
                 <v-btn
                         icon
-                        @click="fetchEntryPoints(node)" v-if="node.hasChildren && isOpen"
+                        @click="fetchEntryPoints()" v-if="node.hasChildren && isOpen"
                         x-small>
                     <font-awesome-icon icon="sync"/>
                 </v-btn>
@@ -32,15 +32,15 @@
                     <font-awesome-icon icon="copy"/>
                 </v-btn>
                 <v-btn
-                        @click="deleteChildren(node)"
+                        @click="deleteChildren()"
                         icon v-if="node.hasChildren && !readonly"
                         x-small>
                     <font-awesome-icon icon="trash"/>
                 </v-btn>
             </span>
         </div>
-        <div v-if="children && children.length > 0 && isOpen" class="entrypoint-children">
-            <entrypoint v-for="child in children" :key="child.path" :node="child" :filter="filter">
+        <div class="entrypoint-children" v-if="node && node.children && node.children.length > 0 && isOpen">
+            <entrypoint :filter="filter" :key="child.path" :node="child" v-for="child in node.children">
             </entrypoint>
         </div>
     </div>
@@ -48,8 +48,9 @@
 
 <script>
     import EventBus from '../eventBus';
-    import {DELETE_NODE, FETCH_ENTRY_POINTS, SELECT_NODE} from '../store/actions.type';
-    import {UNSELECT_NODE} from '../store/mutations.type';
+    import NodeHelper from "../helpers/nodeHelper";
+    import {DELETE_CHILDREN_NODE, FETCH_ENTRY_POINTS, SELECT_NODE} from '../store/actions.type';
+    import {ADD_ERROR, UNSELECT_NODE} from '../store/mutations.type';
 
     export default {
         name: 'entrypoint',
@@ -63,7 +64,6 @@
         data() {
             return {
                 isOpen: false,
-                children: null,
                 loading: false,
                 hover: false
             }
@@ -71,7 +71,7 @@
 
         methods: {
             toggle() {
-                if (this.children === null && !this.isOpen) {
+                if (!this.node.children && !this.isOpen) {
                     this.fetchEntryPoints()
                 }
                 this.isOpen = !this.isOpen
@@ -83,18 +83,36 @@
                 }
             },
 
-            deleteChildren(node) {
+            deleteChildren() {
                 EventBus.$emit('display-modal', {
                     message: 'Are you sure you want to delete the content?',
                     yesHandler: () => {
-                        this.$store.dispatch(DELETE_NODE, node)
-                    }, noHandler: () => {}
+                        this.loading = true;
+                        this.$store.dispatch(DELETE_CHILDREN_NODE, this.node).then(() => {
+                            // Update the tree.
+                            this.isOpen = false;
+                            this.node.children = null;
+                            const childrenLengthDifference = this.node.length;
+                            let nodeToRefresh = this.node;
+                            while (nodeToRefresh != null) {
+                                nodeToRefresh.length -= childrenLengthDifference;
+                                nodeToRefresh.hasChildren = nodeToRefresh.length > 0;
+                                NodeHelper.removeFromParentIfEmpty(nodeToRefresh);
+                                nodeToRefresh = nodeToRefresh.parent
+                            }
+                            this.loading = false
+                        }).catch((e) => {
+                            this.loading = false;
+                            this.$store.commit(ADD_ERROR, e);
+                        })
+                    }, noHandler: () => {
+                    }
                 });
             },
 
             copyChildrenList() {
                 let valueToCopy;
-                this.children.forEach((v) => {
+                this.node.children.forEach((v) => {
                     if (valueToCopy) {
                         valueToCopy += "\r\n" + v.fullPath;
                     } else {
@@ -123,14 +141,18 @@
                     minLevel: this.node.level + 1,
                     maxLevel: this.node.level + 1,
                 }).then(data => {
-                    this.children = Object.freeze([...data.map(n => {
+                    this.node.children = data.map(n => {
+                        n.parent = this.node
                         n.hasChildren = n.length > 0
                         n.name = n.path
                         n.fullPath = this.node.fullPath + ':' + n.path
                         n.level = this.node.level + 1
                         return n;
-                    })]);
+                    });
                     this.loading = false
+                }).catch((e) => {
+                    this.loading = false;
+                    this.$store.commit(ADD_ERROR, e);
                 })
             },
         },
@@ -139,8 +161,8 @@
             this.$store.subscribe((mutation) => {
                 if (mutation.type === UNSELECT_NODE) {
                     const deletedNode = mutation.payload
-                    if (this.children && this.children.length) {
-                        let deletedChildNode = this.children.find(c => c.fullPath === deletedNode.fullPath);
+                    if (this.node && this.node.children && this.node.children.length) {
+                        let deletedChildNode = this.node.children.find(c => c.fullPath === deletedNode.fullPath);
                         if (deletedChildNode) {
                             this.fetchEntryPoints();
                         }
@@ -152,18 +174,22 @@
 </script>
 
 <style lang="scss">
-    #tree-node {    
+    #tree-node {
         font-family: "Ubuntu Mono";
+
         .entrypoint-children {
             margin-left: 20px;
         }
+
         .toggle-icon {
             cursor: pointer;
             color: rgb(172, 172, 172);
             font-size: 13px;
         }
+
         .content {
             cursor: pointer;
+
             &:hover {
                 text-decoration: underline;
             }

@@ -1,4 +1,5 @@
 import {
+    DELETE_CHILDREN_NODE,
     DELETE_NODE,
     FETCH_DATASOURCE,
     FETCH_ENTRY_POINTS,
@@ -25,7 +26,7 @@ const initialState = {
     entryPoints: []
 }
 
-const state = { ...initialState }
+const state = {...initialState}
 
 export const getters = {
     getSelected(state) {
@@ -61,13 +62,19 @@ export const actions = {
                 context.commit(ADD_ERROR, e);
             });
     },
+    [DELETE_CHILDREN_NODE](context, node) {
+        return DatasourcesService.deleteEntrypointChildren(context.state.selectedDatasourceId, node.fullPath)
+            .catch((e) => {
+                context.commit(ADD_ERROR, e);
+            });
+    },
     [SELECT_NODE](context, node) {
         context.commit(SET_SELECTED_NODE, node);
         return node;
     },
     [FETCH_ENTRY_POINTS](context, request) {
         const {filter, minLevel, maxLevel} = request;
-        const { entrypointPrefix } = request;
+        const {entrypointPrefix} = request;
         const actualFilter = FilterHelper.transformFilter(entrypointPrefix, filter)
         return new Promise((resolve, reject) => {
             DatasourcesService.listEntryPoints({
@@ -89,7 +96,7 @@ export const actions = {
                 context.commit(ADD_ERROR, e);
             })
         })
-        
+
     }
 }
 

@@ -58,22 +58,16 @@ export const DatasourcesService = {
   },
 
   getClusterNodes(datasourceId) {
-    return ApiService.post(`data/${datasourceId}/command`, {args: ['cluster', 'nodes']})
-      .then(response => {
-          const clusterNodes = response.data.data.split(/\n/)
-              .map(nodeInfoString => nodeInfoString.split(' '))
-              .filter(infos => infos.length >= 3)
-              .map(infos => {
-                  return {
-                      id: infos[0],
-                      ip: infos[1].split('@')[0],
-                      role: infos[2].replace('myself,', '')
-                  }
-              });
-          return clusterNodes;
-      }).catch(e => {
-        return Promise.reject(e.response.data.error)
-      })
+    return ApiService.get(`data/${datasourceId}/infos`)
+        .then(response => {
+          const infos = response.data.infos;
+          if (infos != null && infos.nodes != null) {
+            return infos.nodes;
+          }
+          return [];
+        }).catch(e => {
+          return Promise.reject(e.response.data.error)
+        })
   },
 
   getNodeDetails(datasource, node) {
@@ -83,27 +77,27 @@ export const DatasourcesService = {
     return new Promise((resolve, reject) => {
       ApiService.get(`${nodeResourcePath}/info`, {format: 'json'})
         .then(response => {
-          details.info = response.data
+          details.info = response.data;
           ApiService.get(`${nodeResourcePath}/content`, {format: 'json'})
-            .then(response => {
-              if (response.status === 200) {
-                details.content = response.data
-                resolve(details)
-              } else if (response.status === 202) {
-                let receivedValues = [];
-                let socket = new WebSocket(this.wsRoot + response.data.link);
-                socket.onopen = () => {
-                  socket.onmessage = ({ data }) => {
-                    let jsonData = JSON.parse(data);
-                    if (jsonData.size) {
-                      receivedValues = receivedValues.concat(jsonData.data);
-                    } else {
-                      details.content = {
-                        length: receivedValues.length,
-                        data: receivedValues
-                      };
-                      resolve(details);
-                    }
+              .then(response => {
+                if (response.status === 200) {
+                  details.content = response.data
+                  resolve(details)
+                } else if (response.status === 202) {
+                  let receivedValues = [];
+                  let socket = new WebSocket(this.wsRoot + response.data.link);
+                  socket.onopen = () => {
+                    socket.onmessage = ({data}) => {
+                      let jsonData = JSON.parse(data);
+                      if (jsonData.size) {
+                        receivedValues = receivedValues.concat(jsonData.data);
+                      } else {
+                        details.content = {
+                          length: receivedValues.length,
+                          data: receivedValues
+                        };
+                        resolve(details);
+                      }
                   };
                 };
               }
@@ -134,9 +128,16 @@ export const DatasourcesService = {
 
   deleteEntrypoint(datasourceId, fullPath) {
     return ApiService.delete(`data/${datasourceId}/entrypoint/${fullPath}`, {format: 'json'})
-      .catch(e => {
-        return Promise.reject(e.response.data.error)
-      })
+        .catch(e => {
+          return Promise.reject(e.response.data.error)
+        })
+  },
+
+  deleteEntrypointChildren(datasourceId, fullPath) {
+    return ApiService.delete(`data/${datasourceId}/entrypoint/${fullPath}/children`, {format: 'json'})
+        .catch(e => {
+          return Promise.reject(e.response.data.error)
+        })
   },
 
   getEntryPointsFromWebsocket(link) {
@@ -144,7 +145,7 @@ export const DatasourcesService = {
     return new Promise((resolve, reject) => {
       let socket = new WebSocket(wsRoot + link);
       socket.onopen = () => {
-        socket.onmessage = ({ data }) => {
+        socket.onmessage = ({data}) => {
           let jsonData = JSON.parse(data);
           if (jsonData.size > 0) {
             receivedValues = receivedValues.concat(jsonData.data);
