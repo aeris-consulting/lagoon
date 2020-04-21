@@ -47,10 +47,12 @@
 </template>
 
 <script>
+    import {ADD_ERROR} from "../store/mutations.type";
+    import EventBus from '../eventBus';
+    import {DatasourcesService} from '../services/api.service'
+
     var $ = require('jquery');
     require('jquery.terminal');
-    import EventBus from '../eventBus';
-    import { DatasourcesService } from '../services/api.service'
 
     const defaultNode = {
         id: ''
@@ -106,6 +108,8 @@
                             this.selectedNode = defaultNode
                         }
                     }
+                }).catch((e) => {
+                this.$store.commit(ADD_ERROR, e);
             })
         }
     }

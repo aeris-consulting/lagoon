@@ -155,7 +155,10 @@
             refresh: async function () {
                 this.lastRefresh = new Date();
                 this.isLoadingContent = true;
-                this.nodeDetails = await this.$store.dispatch(FETCH_NODE_DETAILS, this.node);
+                this.nodeDetails = await this.$store.dispatch(FETCH_NODE_DETAILS, this.node).catch((e) => {
+                    this.loading = false;
+                    this.$store.commit(ADD_ERROR, e);
+                });
                 this.isLoadingContent = false;
             },
 

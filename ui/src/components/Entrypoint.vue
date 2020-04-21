@@ -150,6 +150,9 @@
                         return n;
                     });
                     this.loading = false
+                }).catch((e) => {
+                    this.loading = false;
+                    this.$store.commit(ADD_ERROR, e);
                 })
             },
         },
