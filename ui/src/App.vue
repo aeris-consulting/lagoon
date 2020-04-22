@@ -1,6 +1,22 @@
 <template>
     <v-app>
         <div class="" id="app-container">
+            <div class="alerts-container">    
+                <v-alert
+                    :key="i" class="errors" v-for="(error, i) in errors"
+                    border="left"
+                    type="error"
+                    dark>
+                    {{ error.message }}
+                    <template v-slot:append>
+                        <v-btn
+                            @click="dismissErrorMessage(i)"
+                            class="mx-2" icon>
+                            <v-icon dark>mdi-close</v-icon>
+                        </v-btn>
+                    </template>
+                </v-alert>
+            </div>
             <v-app-bar
                 color="primary" dark>
                 <v-toolbar-title @click="refresh" class="app-logo">Lagoon
@@ -10,7 +26,7 @@
                 <div class="flex-grow-1"></div>
                 <v-btn icon
                        @click="openTerminal"
-                       v-if="showTerminalButton">
+                       v-if="selectedDatasourceId">
                     <font-awesome-icon :icon="['fa', 'terminal']"/>
                 </v-btn>
                 <v-btn icon
@@ -20,8 +36,7 @@
             </v-app-bar>
             <div id="content">
                 <data-source
-                        ref="dataSource"
-                    @display-modal="showConfirmation">
+                        ref="dataSource">
                 </data-source>
             </div>
 
@@ -46,6 +61,8 @@
 <script>
     import DataSource from './components/DataSource.vue'
     import EventBus from './eventBus'
+    import {mapState} from 'vuex'
+    import {DISSMISS_ERROR} from './store/actions.type'
 
     export default {
         name: 'app-container',
@@ -54,12 +71,17 @@
             DataSource
         },
 
+        computed: mapState({
+            selectedDatasourceId: state => state.datasource.selectedDatasourceId,
+            errors: state => state.error.errors,
+        }),
+
         data() {
             return {
                 selectedDatasource: null,
                 showSnackbar: false,
                 snakebarText: '',
-                showTerminalButton: false
+                showTerminalButton: false,
             }
         },
 
@@ -108,10 +130,15 @@
 
             refresh: function () {
                 window.document.location.reload();
+            },
+
+            dismissErrorMessage: function(errorIndex) {
+                this.$store.dispatch(DISSMISS_ERROR, errorIndex)
             }
         },
 
         mounted() {
+            EventBus.$on('display-modal', this.showConfirmation)
             EventBus.$on('display-snakebar', this.showSnakebar);
             EventBus.$on('datasource-set', (event) => {
                 // eslint-disable-next-line
@@ -141,5 +168,12 @@
     .datasource-name {
         margin-left: 20px;
         font-size: 14px;
+    }
+
+    .alerts-container {
+        position: fixed;
+        z-index: 9999;
+        top: 80px;
+        right: 20px;
     }
 </style>

@@ -6,10 +6,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/twinj/uuid"
+	"golang.org/x/xerrors"
 	"lagoon/datasource"
 	"log"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -35,16 +37,32 @@ var dataSources = make(map[datasource.DataSourceId]datasource.DataSource)
 var webSocketChannels = make(map[string]chan datasource.DataBatch)
 var webSocketErrorChannels = make(map[string]chan error)
 
+func CloseAllDataSources() {
+	log.Println("Closing all data sources...")
+	for _, ds := range dataSources {
+		ds.Close()
+	}
+	dataSources = make(map[datasource.DataSourceId]datasource.DataSource)
+	DataSourcesHeaders = make(map[datasource.DataSourceId]DataSourceHeader)
+
+	log.Println("Data sources closed")
+}
+
 func CreateNewDataSource(c *gin.Context) {
+	// TODO Validate: https://gin-gonic.com/docs/examples/custom-validators/
 	var dataSourceDescriptor datasource.DataSourceDescriptor
 	if err := c.Bind(&dataSourceDescriptor); err == nil {
-		datasource, err := CreateDataSourceFromDescriptor(dataSourceDescriptor, true)
+		ds, err := CreateDataSourceFromDescriptor(dataSourceDescriptor, true)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			if xerrors.Is(err, datasource.ErrUnkownDatasource) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 		} else {
-			DataSourcesHeaders[datasource.Id] = datasource
+			DataSourcesHeaders[ds.Id] = ds
 			log.Printf("Current data sources: %v \n", DataSourcesHeaders)
-			c.JSON(http.StatusOK, gin.H{"dataSourceId": datasource.Id})
+			c.JSON(http.StatusOK, gin.H{"dataSourceId": ds.Id})
 		}
 	} else {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -77,6 +95,31 @@ func UpdateDataSource(c *gin.Context) {
 	}
 }
 
+func GetDataSources(c *gin.Context) {
+	log.Printf("Current data sources: %v \n", DataSourcesHeaders)
+	datasources := []DataSourceHeader{}
+	for _, v := range DataSourcesHeaders {
+		datasources = append(datasources, v)
+	}
+	sort.Slice(datasources, func(i, j int) bool {
+		return datasources[i].Name < datasources[j].Name
+	})
+	c.JSON(http.StatusOK, gin.H{"datasources": datasources})
+}
+
+func DeleteDataSource(c *gin.Context) {
+	datasourceId := datasource.DataSourceId(c.Params.ByName("DataSourceId"))
+	ds, ok := dataSources[datasourceId]
+	if ok {
+		ds.Close()
+		delete(dataSources, datasourceId)
+		delete(DataSourcesHeaders, datasourceId)
+		c.JSON(http.StatusOK, gin.H{"message": "Data source was closed and removed"})
+	} else {
+		c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("The datasource with id '%s' does not exists", datasourceId)})
+	}
+}
+
 func CreateDataSourceFromDescriptor(dataSourceDescriptor datasource.DataSourceDescriptor, new bool) (DataSourceHeader, error) {
 	log.Printf("Creating data source %v\n", dataSourceDescriptor)
 	dataSource, err := datasource.CreateDataSource(&dataSourceDescriptor)
@@ -105,6 +148,32 @@ func CreateDataSourceFromDescriptor(dataSourceDescriptor datasource.DataSourceDe
 	return DataSourceHeader{}, err
 }
 
+func GetInfos(c *gin.Context) {
+	ds, ok := findDataSource(c)
+	if ok {
+		infos, err := ds.GetInfos()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		} else {
+			c.JSON(http.StatusOK, gin.H{"infos": infos})
+		}
+	}
+}
+
+func GetState(c *gin.Context) {
+	ds, ok := findDataSource(c)
+	if ok {
+		status, err := ds.GetStatus()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+
+		} else {
+			c.JSON(http.StatusOK, gin.H{"status": status})
+		}
+	}
+}
+
 func ListEntryPoints(c *gin.Context) {
 	ds, ok := findDataSource(c)
 	if ok {
@@ -115,7 +184,6 @@ func ListEntryPoints(c *gin.Context) {
 		status, err := ds.ListEntryPoints(filter, entrypointsChannel, minLevel, maxLevel)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-
 		} else if status == datasource.Moved {
 			wsUuid := uuid.NewV4().String()
 			webSocketChannels[wsUuid] = entrypointsChannel
@@ -224,10 +292,10 @@ func DeleteEntryPointChildren(c *gin.Context) {
 }
 
 func findDataSource(c *gin.Context) (datasource.DataSource, bool) {
-	datasourceUuid := datasource.DataSourceId(c.Params.ByName("DataSourceId"))
-	ds, ok := dataSources[datasourceUuid]
+	datasourceId := datasource.DataSourceId(c.Params.ByName("DataSourceId"))
+	ds, ok := dataSources[datasourceId]
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("DataSource with UUID %s was not found", datasourceUuid)})
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("DataSource with UUID %s was not found", datasourceId)})
 	}
 	return ds, ok
 }

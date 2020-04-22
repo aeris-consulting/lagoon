@@ -1,87 +1,96 @@
 <template>
     <div id="entrypoints">
-        <div class="alerts-container">
-            <v-alert
-                :key="i" class="errors" v-for="(error, i) in dataSource.errors"
-                :value="true"
-                @input="dismissErrorMessage(i)"
-                border="left"
-                close-text="Close Alert"
-                type="error"
-                dark
-                dismissible>
-                {{ error.message }}
-            </v-alert>
-        </div>
         <div class="filter-panel">
             <div>
                 <div class="filter-container">
                     <v-text-field
-                        v-model="dataSource.filter"
-                        label="Filter"
+                            label="Filter"
+                            v-model="filter"
                     ></v-text-field>
                 </div>
                 <v-btn class="" color="primary" @click="refresh()">List</v-btn>
                 <v-progress-circular
-                    class="loading-circle"
-                    v-if="dataSource.status !== null"
-                    indeterminate
-                    color="green">
+                        class="loading-circle"
+                        color="green"
+                        indeterminate
+                        v-if="loading">
                 </v-progress-circular>
             </div>
         </div>
 
-        <div class="entrypoint-children-panel" 
-            v-if="root.hasChildren() && root.children !== null">
-            <entrypoint-children @display-modal="showConfirmation"
-                                 v-bind:children="root.children.values()"
-                                 v-bind:dataSource="dataSource"></entrypoint-children>
+        <div class="entrypoint-children-panel" v-if="nodes && nodes.length > 0">
+            <entrypoint :filter="filter" :key="index" :node="node" :readonly="datasource.readonly"
+                        v-for="(node, index) in nodes">
+            </entrypoint>
+
         </div>
     </div>
 </template>
 
 <script>
-    import EntrypointChildren from "./EntrypointChildren";
-    import Node from "../models/Node";
+    import {FETCH_ENTRY_POINTS} from '../store/actions.type';
+    import {UNSELECT_NODE} from '../store/mutations.type';
+    import Entrypoint from './Entrypoint.vue';
 
     export default {
         name: 'EntrypointList',
-        components: {EntrypointChildren},
+
+        components: {
+            Entrypoint
+        },
 
         props: {
-            dataSource: Object,
+            datasourceId: String,
+        },
+
+        computed: {
+            datasource() {
+                return this.$store.getters.getSelected
+            }
         },
 
         data() {
             return {
-                root: new Node('', 0)
+                filter: '',
+                loading: false,
+                nodes: []
             }
         },
 
         methods: {
-            showConfirmation: function (event) {
-                this.$emit('display-modal', event);
-            },
 
-            refresh: function () {
-                this.dataSource.status = 'loading';
-                let self = this;
-                this.root.clear();
-                this.dataSource.listEntrypoints(null, 0, 0, receivedValues => {
-                    receivedValues.forEach(value => {
-                        self.root.addChildNode(new Node(value.path, value.length, value.hasContent))
+            refresh() {
+                this.loading = true;
+                this.nodes = []
+                this.$store.dispatch(FETCH_ENTRY_POINTS, {
+                    filter: this.filter,
+                    entrypointPrefix: null,
+                    minLevel: 0,
+                    maxLevel: 0,
+                }).then(data => {
+                    this.loading = false;
+                    this.nodes = data.map(n => {
+                        n.hasChildren = n.length > 0
+                        n.name = n.path
+                        n.fullPath = n.path
+                        n.level = 0
+                        return n;
                     });
-                    self.dataSource.status = null;
-                }, () => {
-                    self.dataSource.status = null;
-                }, () => {
-                    self.dataSource.status = null;
-                });
+                }).catch(() => {
+                    this.loading = false;
+                })
             },
+        },
 
-            dismissErrorMessage: function(errorIndex) {
-                this.dataSource.errors.splice(errorIndex, 1);
-            }
+        created() {
+            this.$store.subscribe((mutation) => {
+                if (mutation.type === UNSELECT_NODE) {
+                    const deletedNode = mutation.payload
+                    if (deletedNode.level === 0) {
+                        this.refresh();
+                    }
+                }
+            })
         }
     }
 </script>
@@ -91,13 +100,6 @@
         margin-right: 15px;
         width: 200px;
         display: inline-block;
-    }
-
-    .alerts-container {
-        position: fixed;
-        z-index: 9999;
-        top: 80px;
-        right: 20px;
     }
 
     div#entrypoints {
@@ -128,5 +130,13 @@
 
     .loading-circle {
         margin-left: 10px;
+    }
+
+    .content {
+        cursor: pointer;
+
+        &:hover {
+            text-decoration: underline;
+        }
     }
 </style>

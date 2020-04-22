@@ -13,6 +13,7 @@
                 </v-btn>
                 <input type="number" class="frequency-input" v-model="observationFrequency"/> seconds
                 <v-chip
+                        v-if="lastRefresh"
                         class="mr-2">
                     <v-tooltip bottom>
                         <template v-slot:activator="{ on }">
@@ -20,17 +21,17 @@
                         </template>
                         <span>Last refresh time</span>
                     </v-tooltip>
-                    <template v-if="lastRefresh">
+                    <template>
                         {{ lastRefresh.toISOString() }}
                     </template>
                 </v-chip>
             </v-col>
             <v-col cols="4">
                 <v-row justify="end">
-                    <v-btn @click="edit()" icon large v-if="!dataSource.readonly">
+                    <v-btn @click="edit()" icon large v-if="!datasource.readonly">
                         <font-awesome-icon icon="edit"/>
                     </v-btn>
-                    <v-btn @click="erase()" icon large v-if="!dataSource.readonly">
+                    <v-btn @click="deleteNode()" icon large v-if="!datasource.readonly">
                         <font-awesome-icon icon="trash"/>
                     </v-btn>
                 </v-row>
@@ -59,11 +60,11 @@
                                 </template>
                                 <span>Name of node (click to copy)</span>
                             </v-tooltip>
-                            {{ node.getFullName() }}
+                            {{ node.fullPath }}
                         </v-chip>
                     </v-col>
                     <v-col cols="6" style="text-align: right">
-                        <template v-if="node.info">
+                        <template v-if="nodeDetails.info">
                             <v-chip
                                     class="mr-2">
                                 <v-tooltip bottom>
@@ -72,7 +73,7 @@
                                     </template>
                                     <span>Type</span>
                                 </v-tooltip>
-                                {{ node.info.type.toLowerCase() }}
+                                {{ nodeDetails.info.type.toLowerCase() }}
                             </v-chip>
                             <v-chip
                                     class="mr-2">
@@ -82,7 +83,7 @@
                                     </template>
                                     <span>Length</span>
                                 </v-tooltip>
-                                {{ node.info.length }}
+                                {{ nodeDetails.info.length }}
                             </v-chip>
                             <template v-if="timeToLive">
                                 <v-chip
@@ -100,12 +101,12 @@
                     </v-col>
                 </v-row>
 
-                <div class="content mt-2" v-if="node.content && node.info">
+                <div class="content mt-2" v-if="nodeDetails.content && nodeDetails.info">
                     <h4>Content</h4>
-                    <div v-if="node.info.type == 'HASH'">
+                    <div v-if="nodeDetails.info.type == 'HASH'">
                         <json-viewer
                                 :expand-depth=3
-                                :value="node.content.data[0] | parseIfIsJson"
+                                :value="nodeDetails.content.data[0] | parseIfIsJson"
                                 copyable>
                         </json-viewer>
                     </div>
@@ -113,7 +114,7 @@
                     <div class="content-data" v-else>
                         <json-viewer
                                 :expand-depth=1
-                                :value="node.content.data | parseIfIsJson"
+                                :value="nodeDetails.content.data | parseIfIsJson"
                                 copyable>
                         </json-viewer>
                     </div>
@@ -126,6 +127,9 @@
 <script>
     import EventBus from '../eventBus';
     import JsonHelper from '../helpers/jsonHelper';
+    import NodeHelper from '../helpers/nodeHelper';
+    import {DELETE_NODE, FETCH_NODE_DETAILS} from '../store/actions.type';
+    import {ADD_ERROR, UNSELECT_NODE} from "../store/mutations.type";
 
     const humanizeDuration = require('humanize-duration');
 
@@ -133,28 +137,29 @@
         name: 'EntrypointContent',
 
         props: {
-            dataSource: Object,
             node: Object,
         },
 
         data() {
             return {
+                nodeDetails: null,
                 observing: false,
                 observationFrequency: 10,
                 lastRefresh: null,
-                isLoadingContent: false,
+                isLoadingContent: true,
                 format: null
             }
         },
 
         methods: {
-            refresh: function () {
-                let self = this;
+            refresh: async function () {
+                this.lastRefresh = new Date();
                 this.isLoadingContent = true;
-                this.dataSource.refreshNodeDetails(this.node).then(() => {
-                    this.isLoadingContent = false;
-                    self.lastRefresh = new Date();
+                this.nodeDetails = await this.$store.dispatch(FETCH_NODE_DETAILS, this.node).catch((e) => {
+                    this.loading = false;
+                    this.$store.commit(ADD_ERROR, e);
                 });
+                this.isLoadingContent = false;
             },
 
             observe: function () {
@@ -185,18 +190,37 @@
                 });
             },
 
-            erase: function () {
-                this.$emit('display-modal', {
+            deleteNode: function () {
+                EventBus.$emit('display-modal', {
                     message: 'Are you sure you want to delete the content?',
                     yesHandler: () => {
-                        this.dataSource.deleteEntrypoint(this.node);
-                    }, noHandler: () => {
-                    }
+                        this.stopObserve();
+
+                        this.$store.dispatch(DELETE_NODE, this.node).then(() => {
+                            this.$store.commit(UNSELECT_NODE, this.node);
+                            // Update the tree.
+                            this.node.hasContent = false;
+                            if (!this.node.hasChildren && !this.node.hasContent) {
+                                let deletedNodeIndex = this.node.parent.children.findIndex(c => c.fullPath === this.node.fullPath);
+                                this.node.parent.children.splice(deletedNodeIndex, 1)
+                            }
+
+                            let nodeToRefresh = this.node.parent;
+                            while (nodeToRefresh != null) {
+                                nodeToRefresh.length -= 1;
+                                nodeToRefresh.hasChildren = nodeToRefresh.length > 0;
+                                NodeHelper.removeFromParentIfEmpty(nodeToRefresh);
+                                nodeToRefresh = nodeToRefresh.parent;
+                            }
+                        }).catch((e) => {
+                            this.$store.commit(ADD_ERROR, e);
+                        })
+                    }, noHandler: () => {}
                 });
             },
 
             copyKey: function () {
-                this.$copyText(this.node.getFullName()).then(function () {
+                this.$copyText(this.node.fullPath).then(function () {
                     EventBus.$emit('display-snakebar', {
                         message: 'The key was copied to your clipboard'
                     });
@@ -209,9 +233,12 @@
         },
 
         computed: {
+            datasource() {
+                return this.$store.getters.getSelected
+            },
             timeToLive: function () {
-                if (this.node.info.timeToLive && this.node.info.timeToLive > 0) {
-                    return humanizeDuration(this.node.info.timeToLive, {units: ['d', 'h', 'm', 's']})
+                if (this.nodeDetails && this.nodeDetails.info.timeToLive && this.nodeDetails.info.timeToLive > 0) {
+                    return humanizeDuration(this.nodeDetails.info.timeToLive, {units: ['d', 'h', 'm', 's']})
                 }
                 return null
             }
@@ -229,14 +256,11 @@
         },
 
         created() {
-            let node = this.node;
-            node.contentComponent = self;
             this.refresh();
         },
 
         beforeDestroy() {
             this.stopObserve();
-            this.node.contentComponent = null;
         }
     }
 </script>

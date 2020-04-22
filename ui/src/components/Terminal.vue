@@ -30,7 +30,7 @@
                             @click="changeNode(item)"
                             v-for="(item, index) in clusterNodesInfo"
                     >
-                        <v-list-item-title>{{ item.ip }} ({{item.role}})</v-list-item-title>
+                        <v-list-item-title>{{ item.name }} ({{item.role}})</v-list-item-title>
                     </v-list-item>
                 </v-list>
             </v-menu>
@@ -47,9 +47,12 @@
 </template>
 
 <script>
+    import {ADD_ERROR} from "../store/mutations.type";
+    import EventBus from '../eventBus';
+    import {DatasourcesService} from '../services/api.service'
+
     var $ = require('jquery');
     require('jquery.terminal');
-    import EventBus from '../eventBus';
 
     const defaultNode = {
         id: ''
@@ -57,9 +60,10 @@
 
     export default {
         name: 'terminal',
-        components: {},
-        props: {
-            dataSource: Object
+        computed: {
+            datasource() {
+                return this.$store.getters.getSelected
+            }
         },
         data() {
             return {
@@ -80,7 +84,7 @@
                     if (command !== '') {
                         const commands = command.split(' ');
                         const nodeId = (self.selectedNode && self.selectedNode.id) ? self.selectedNode.id : ''
-                        self.dataSource.executeCommand(commands, nodeId).then(response => {
+                        DatasourcesService.executeCommand(commands, nodeId, self.datasource.id).then(response => {
                             echoDataToTerminal(this, response.data);
                         }).catch(e => {
                             this.echo(String(e));
@@ -96,11 +100,16 @@
             EventBus.$on('open-terminal', () => {
                 this.$modal.show('terminal');
             });
-            this.dataSource.getClusterNodes().then((clusterNodesInfo) => {
-                this.clusterNodesInfo = clusterNodesInfo;
-                if (clusterNodesInfo.length > 0) {
-                    this.selectedNode = defaultNode
-                }
+            DatasourcesService.getClusterNodes(this.datasource.id)
+                .then((clusterNodesInfo) => {
+                    if (clusterNodesInfo) {
+                        this.clusterNodesInfo = clusterNodesInfo;
+                        if (clusterNodesInfo.length > 0) {
+                            this.selectedNode = defaultNode
+                        }
+                    }
+                }).catch((e) => {
+                this.$store.commit(ADD_ERROR, e);
             })
         }
     }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 
 	_ "lagoon/datasource/redis"
 )
@@ -57,10 +61,40 @@ var rootCmd = &cobra.Command{
 			configuration.Port = 4000
 		}
 
-		r := setupRouter()
+		router := setupRouter()
 
-		log.Printf("Starting Lagoon on port %d", configuration.Port)
-		r.Run(":" + strconv.Itoa(configuration.Port))
+		srv := &http.Server{
+			Addr:    ":" + strconv.Itoa(configuration.Port),
+			Handler: router,
+		}
+
+		go func() {
+			// service connections
+			log.Printf("Starting Lagoon listening %s", srv.Addr)
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("Server start failed: %s\n", err)
+			}
+		}()
+
+		// Waiting for a signal to stop the server.
+		quit := make(chan os.Signal)
+		// SIGKILL but can't be catch and is therefore ignored.
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		<-quit
+
+		log.Println("Shutting down server...")
+		api.CloseAllDataSources()
+		// Wait for interrupt signal to gracefully shutdown the server with
+		// a timeout of 5 seconds.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Fatalf("Server shutdown failed: %s\n", err)
+		}
+		// Waiting for the timeout.
+		select {
+		case <-ctx.Done():
+		}
 	},
 }
 
@@ -95,24 +129,30 @@ func setupRouter() *gin.Engine {
 	r.Use(cors.Default())
 
 	// Create a data source
-	r.PUT(contextPath+"/datasource", func(c *gin.Context) {
+	r.POST(contextPath+"/datasource", func(c *gin.Context) {
 		api.CreateNewDataSource(c)
 	})
 	r.PATCH(contextPath+"/datasource", func(c *gin.Context) {
 		api.UpdateDataSource(c)
 	})
+	r.DELETE(contextPath+"/datasource/:DataSourceId", func(c *gin.Context) {
+		api.DeleteDataSource(c)
+	})
 	r.GET(contextPath+"/datasource", func(c *gin.Context) {
-		log.Printf("Current data sources: %v \n", api.DataSourcesHeaders)
-		datasources := []api.DataSourceHeader{}
-		for _, v := range api.DataSourcesHeaders {
-			datasources = append(datasources, v)
-		}
-		c.JSON(http.StatusOK, gin.H{"datasources": datasources})
+		api.GetDataSources(c)
 	})
 
 	// list entry points
 	r.GET(contextPath+"/data/:DataSourceId/entrypoint", func(c *gin.Context) {
 		api.ListEntryPoints(c)
+	})
+
+	r.GET(contextPath+"/data/:DataSourceId/infos", func(c *gin.Context) {
+		api.GetInfos(c)
+	})
+
+	r.GET(contextPath+"/data/:DataSourceId/state", func(c *gin.Context) {
+		api.GetState(c)
 	})
 
 	r.GET(contextPath+"/data/:DataSourceId/entrypoint/:entrypoint/info", func(c *gin.Context) {
@@ -135,7 +175,7 @@ func setupRouter() *gin.Engine {
 		api.ExecuteCommand(c)
 	})
 
-	// list entry points
+	// Consume web-socket.
 	r.GET(contextPath+"/ws/:wsUuid", func(c *gin.Context) {
 		api.ReadChannelContentAndSendToWebSocket(c)
 	})

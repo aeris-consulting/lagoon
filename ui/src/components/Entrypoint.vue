@@ -1,117 +1,127 @@
 <template>
-    <li v-bind:class="{ 'loading': loading}">
-        <span class="entry-point">
-            <font-awesome-icon @click="toggleOpen()" class="icon-left" icon="angle-right"
-                               v-if="node.hasChildren() && !open"/>
-            <font-awesome-icon @click="toggleOpen()" class="icon-left" icon="angle-down"
-                               v-if="node.hasChildren() && open"/>
-            <span @click="display()" class="name" v-bind:class="{ 'content': node.hasContent }">{{ node.name }}</span>
-            <span class="info-bar"
-                  v-if="node.hasChildren()">({{ node.length ? node.length : node.children.length }})
-                <span>
-                    <v-progress-circular
-                            :size="10"
-                            :width="2"
-                            color="primary"
-                            indeterminate
-                            v-if="loading"
-                    ></v-progress-circular>
-                </span>
-                <span class="button-bar">
-                    <!-- <v-btn icon @click="add()" x-small>
-                      <font-awesome-icon icon="plus"/>
-                    </v-btn> -->
-                    <v-btn
-                            @click="refresh()" icon v-if="node.hasChildren() && open"
-                            x-small>
-                      <font-awesome-icon icon="sync"/>
-                    </v-btn>
-                    <v-btn @click="copyChildrenList()" icon v-if="node.hasChildren() && open"
-                           x-small>
-                      <font-awesome-icon icon="copy"/>
-                    </v-btn>
-                    <v-btn @click="deleteChildren()" icon v-if="!dataSource.readonly"
-                           x-small>
-                      <font-awesome-icon icon="trash"/>
-                    </v-btn>
-                </span>
+    <div id="tree-node">
+        <div class="entrypoint"
+             @mouseleave="hover = false"
+             @mouseover="hover = true">
+            <font-awesome-icon @click="toggle()" class="toggle-icon" icon="angle-right"
+                               v-if="node.hasChildren && !isOpen && !loading"/>
+            <font-awesome-icon @click="toggle()" class="toggle-icon" icon="angle-down"
+                               v-if="node.hasChildren && isOpen && !loading"/>
+            <v-progress-circular
+                    :size="10"
+                    :width="2"
+                    color="primary"
+                    indeterminate
+                    v-if="loading"
+            ></v-progress-circular>
+            <span @click="display()" :class="{ 'content': node.hasContent }">
+                {{ node.path }}
+                <span v-if="node.hasChildren">({{node.length}})</span>
             </span>
-        </span>
-    </li>
+            <span class="entrypoint-actions" v-if="hover">
+                <v-btn
+                        icon
+                        @click="fetchEntryPoints()" v-if="node.hasChildren && isOpen"
+                        x-small>
+                    <font-awesome-icon icon="sync"/>
+                </v-btn>
+                <v-btn
+                        icon
+                        @click="copyChildrenList(node)" v-if="node.hasChildren && isOpen"
+                        x-small>
+                    <font-awesome-icon icon="copy"/>
+                </v-btn>
+                <v-btn
+                        @click="deleteChildren()"
+                        icon v-if="node.hasChildren && !readonly"
+                        x-small>
+                    <font-awesome-icon icon="trash"/>
+                </v-btn>
+            </span>
+        </div>
+        <div class="entrypoint-children" v-if="node && node.children && node.children.length > 0 && isOpen">
+            <entrypoint :filter="filter" :key="child.path" :node="child" v-for="child in node.children">
+            </entrypoint>
+        </div>
+    </div>
 </template>
 
 <script>
-    import Node from '../models/Node';
-    import EntrypointChildren from './EntrypointChildren';
-    import EventBus from '../eventBus'
-    import Vue from 'vue';
+    import EventBus from '../eventBus';
+    import NodeHelper from "../helpers/nodeHelper";
+    import {DELETE_CHILDREN_NODE, FETCH_ENTRY_POINTS, SELECT_NODE} from '../store/actions.type';
+    import {ADD_ERROR, UNSELECT_NODE} from '../store/mutations.type';
 
     export default {
         name: 'entrypoint',
 
         props: {
             node: Object,
-            dataSource: Object,
+            filter: String,
+            readonly: Boolean
         },
 
         data() {
             return {
-                open: false,
+                isOpen: false,
                 loading: false,
-                childrenComponent: null,
-                contentLoaded: false,
-                entrypointChildrenClass: Vue.extend(EntrypointChildren),
+                hover: false
             }
         },
 
         methods: {
-            showConfirmation: function (event) {
-                this.$emit('display-modal', event);
+            toggle() {
+                if (!this.node.children && !this.isOpen) {
+                    this.fetchEntryPoints()
+                }
+                this.isOpen = !this.isOpen
             },
 
-            showSnakebar: function (event) {
-                EventBus.$emit('display-snakebar', event);
-            },
-
-            display: function () {
+            display() {
                 if (this.node.hasContent) {
-                    this.dataSource.selectNode(this.node);
+                    this.$store.dispatch(SELECT_NODE, this.node)
                 }
             },
 
-            toggleOpen: function () {
-                if (this.node.hasChildren()) {
-                    if (!this.open) {
-                        if (this.childrenComponent === null) {
-                            this.refresh();
-                        } else if (this.childrenComponent !== null) {
-                            this.open = !this.open;
-                            this.childrenComponent.visible = true;
-                        }
-                    } else if (this.childrenComponent !== null) {
-                        this.open = !this.open;
-                        this.childrenComponent.visible = false;
+            deleteChildren() {
+                EventBus.$emit('display-modal', {
+                    message: 'Are you sure you want to delete the content?',
+                    yesHandler: () => {
+                        this.loading = true;
+                        this.$store.dispatch(DELETE_CHILDREN_NODE, this.node).then(() => {
+                            // Update the tree.
+                            this.isOpen = false;
+                            this.node.children = null;
+                            const childrenLengthDifference = this.node.length;
+                            let nodeToRefresh = this.node;
+                            while (nodeToRefresh != null) {
+                                nodeToRefresh.length -= childrenLengthDifference;
+                                nodeToRefresh.hasChildren = nodeToRefresh.length > 0;
+                                NodeHelper.removeFromParentIfEmpty(nodeToRefresh);
+                                nodeToRefresh = nodeToRefresh.parent
+                            }
+                            this.loading = false
+                        }).catch((e) => {
+                            this.loading = false;
+                            this.$store.commit(ADD_ERROR, e);
+                        })
+                    }, noHandler: () => {
                     }
-                }
+                });
             },
 
-            copyChildrenList: function () {
-                let fullName = this.node.getFullName();
-                let value;
-                // eslint-disable-next-line
-                console.log(this.node.children);
-
-                this.node.children.forEach((v, k) => {
-                    let nodeFullName = fullName + ':' + k;
-                    if (value) {
-                        value += "\r\n" + nodeFullName;
+            copyChildrenList() {
+                let valueToCopy;
+                this.node.children.forEach((v) => {
+                    if (valueToCopy) {
+                        valueToCopy += "\r\n" + v.fullPath;
                     } else {
-                        value = nodeFullName;
+                        valueToCopy = v.fullPath;
                     }
                 });
 
-                if (value) {
-                    this.$copyText(value).then(function () {
+                if (valueToCopy) {
+                    this.$copyText(valueToCopy).then(function () {
                         EventBus.$emit('display-snakebar', {
                             message: 'The list of direct children was copied to your clipboard'
                         });
@@ -123,124 +133,66 @@
                 }
             },
 
-            deleteChildren: function () {
-                let self = this;
-                this.$emit('display-modal', {
-                    message: 'Are you sure you want to delete all the children?',
-                    yesHandler: () => {
-                        self.loading = true;
-                        this.dataSource.deleteEntrypointChildren(self.node, self);
-                    }, noHandler: () => {
-                    }
-                });
-            },
-
-            close: function () {
-                this.open = false;
-                this.node.clear();
-                this.$el.removeChild(this.childrenComponent.$el);
-                this.childrenComponent = null;
-            },
-
-            refresh: function () {
-                this.loading = true;
-                let self = this;
-
-                if (this.node.children !== null) {
-                    this.node.children.clear();
-                }
-
-                this.dataSource.listEntrypoints(this.node.getFullName(), this.node.level, this.node.level, receivedValues => {
-                    receivedValues.forEach(value => {
-                        self.node.addChildNode(new Node(value.path, value.length, value.hasContent))
+            fetchEntryPoints() {
+                this.loading = true
+                this.$store.dispatch(FETCH_ENTRY_POINTS, {
+                    filter: `*${this.filter}*`,
+                    entrypointPrefix: this.node.fullPath,
+                    minLevel: this.node.level + 1,
+                    maxLevel: this.node.level + 1,
+                }).then(data => {
+                    this.node.children = data.map(n => {
+                        n.parent = this.node
+                        n.hasChildren = n.length > 0
+                        n.name = n.path
+                        n.fullPath = this.node.fullPath + ':' + n.path
+                        n.level = this.node.level + 1
+                        return n;
                     });
-
-                    if (!this.childrenComponent) {
-                        this.childrenComponent = new this.entrypointChildrenClass({
-                            propsData: {
-                                children: this.node.children.values(),
-                                dataSource: this.dataSource,
-                            }
-                        });
-                        this.childrenComponent.$mount();
-                        this.$el.appendChild(this.childrenComponent.$el);
-                        this.childrenComponent.$on(['display-modal'], this.showConfirmation);
-                    } else {
-                        this.childrenComponent.children = this.node.children.values();
-                    }
-
+                    this.loading = false
+                }).catch((e) => {
                     this.loading = false;
-                    this.open = true;
-                }, () => {
-                    this.loading = false;
-                }, () => {
-                    this.loading = false;
-                });
-            }
+                    this.$store.commit(ADD_ERROR, e);
+                })
+            },
         },
 
         created() {
-            this.node.component = this;
-        },
-
-        beforeDestroy() {
-            this.node.component = null;
+            this.$store.subscribe((mutation) => {
+                if (mutation.type === UNSELECT_NODE) {
+                    const deletedNode = mutation.payload
+                    if (this.node && this.node.children && this.node.children.length) {
+                        let deletedChildNode = this.node.children.find(c => c.fullPath === deletedNode.fullPath);
+                        if (deletedChildNode) {
+                            this.fetchEntryPoints();
+                        }
+                    }
+                }
+            })
         }
     }
 </script>
 
-<style lang="scss" scoped>
-    li {
+<style lang="scss">
+    #tree-node {
         font-family: "Ubuntu Mono";
-        color: gray;
-        font-size: 15px;
-        list-style-type: none;
-        padding-left: 10px;
-    }
 
-    .name {
-        margin-left: 5px;
-        margin-right: 5px;
-    }
+        .entrypoint-children {
+            margin-left: 20px;
+        }
 
-    .content {
-        cursor: pointer;
+        .toggle-icon {
+            cursor: pointer;
+            color: rgb(172, 172, 172);
+            font-size: 13px;
+        }
 
-        &:hover {
-            text-decoration: underline;
+        .content {
+            cursor: pointer;
+
+            &:hover {
+                text-decoration: underline;
+            }
         }
     }
-
-    .info-bar {
-        margin-left: 0px;
-        margin-right: 0px;
-    }
-
-    .button-bar {
-        margin-left: 0px;
-        margin-right: 5px;
-        visibility: hidden;
-    }
-
-    .entry-point:hover .button-bar {
-        visibility: visible;
-    }
-
-    li.loading {
-        color: gray;
-    }
-
-    .icon-left {
-        color: lightgray;
-        font-size: 10px;
-        cursor: pointer;
-    }
-
-    .icon-right {
-        margin-right: 4px;
-        color: lightgray;
-        font-size: 10px;
-        cursor: pointer;
-    }
-
 </style>
