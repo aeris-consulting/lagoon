@@ -94,6 +94,7 @@ export const actions = {
                 }
             }).catch(e => {
                 context.commit(ADD_ERROR, e);
+                reject()
             })
         })
 
