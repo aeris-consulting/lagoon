@@ -31,6 +31,11 @@ type RedisClient struct {
 type RedisVendor struct {
 }
 
+type SortedSetValues struct {
+	Score  float64  `json:"score"`
+	Values []string `json:"values"`
+}
+
 func init() {
 	datasource.DeclareImplementation(&RedisVendor{})
 }
@@ -812,7 +817,7 @@ func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryP
 	return datasource.Moved, err
 }
 
-func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter string, content chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
+func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter string, contentChannel chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
 	var (
 		err          error
 		actionStatus datasource.ActionStatus
@@ -828,20 +833,20 @@ func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter s
 		case "string":
 			value, err := c.getValue(entryPointValue)
 			if err == nil {
-				content <- datasource.DataBatch{
+				contentChannel <- datasource.DataBatch{
 					Size: 1,
 					Data: []interface{}{value},
 				}
 			}
 			actionStatus = datasource.Completed
 		case "set":
-			return c.getSetValues(entryPointValue, filter, content)
+			return c.getSetValues(entryPointValue, filter, contentChannel)
 		case "zset":
-			return c.getZSetValues(entryPointValue, filter, content)
+			return c.getZSetValues(entryPointValue, filter, contentChannel)
 		case "list":
-			return c.getListValues(entryPointValue, filter, content)
+			return c.getListValues(entryPointValue, filter, contentChannel)
 		case "hash":
-			return c.getFullHash(entryPointValue, filter, content)
+			return c.getFullHash(entryPointValue, filter, contentChannel)
 		case "stream":
 			// TODO
 		case "none":
@@ -870,18 +875,23 @@ func (c *RedisClient) getZSetValues(entryPointValue datasource.EntryPoint, filte
 	return c.scan(filter, target, func(cursor uint64, match string, count int64) *redis.ScanCmd {
 		return c.client.ZScan(string(entryPointValue), cursor, match, count)
 	}, func(values []string) interface{} {
-		result := make(map[float64][]string)
+		scoredValuesMap := make(map[float64][]string)
+		// Result slice contains a sequence of "value score value score...".
 		for i := 0; i < len(values); i = i + 2 {
 			score, err := strconv.ParseFloat(values[i+1], 64)
 			if err == nil {
-				scoredValues, ok := result[score]
+				scoredValues, ok := scoredValuesMap[score]
 				if ok {
 					scoredValues = append(scoredValues, values[i])
 				} else {
 					scoredValues = []string{values[i]}
 				}
-				result[score] = scoredValues
+				scoredValuesMap[score] = scoredValues
 			}
+		}
+		result := []interface{}{}
+		for score, values := range scoredValuesMap {
+			result = append(result, SortedSetValues{Score: score, Values: values})
 		}
 		return result
 	})

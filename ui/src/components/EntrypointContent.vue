@@ -103,21 +103,11 @@
 
                 <div class="content mt-2" v-if="nodeDetails.content && nodeDetails.info">
                     <h4>Content</h4>
-                    <div v-if="nodeDetails.info.type == 'HASH'">
-                        <json-viewer
-                                :expand-depth=3
-                                :value="nodeDetails.content.data[0] | parseIfIsJson"
-                                copyable>
-                        </json-viewer>
-                    </div>
-
-                    <div class="content-data" v-else>
-                        <json-viewer
-                                :expand-depth=1
-                                :value="nodeDetails.content.data | parseIfIsJson"
-                                copyable>
-                        </json-viewer>
-                    </div>
+                    <json-viewer
+                            :expand-depth=this.defaultExpandDepth
+                            :value="nodeDetails.content.data | parseIfIsJson"
+                            copyable>
+                    </json-viewer>
                 </div>
             </div>
 
@@ -143,6 +133,7 @@
         data() {
             return {
                 nodeDetails: null,
+                defaultExpandDepth: 1,
                 observing: false,
                 observationFrequency: 10,
                 lastRefresh: null,
@@ -159,6 +150,17 @@
                     this.loading = false;
                     this.$store.commit(ADD_ERROR, e);
                 });
+                if (this.nodeDetails.info.type == 'SCORED_SET') {
+                    const data = this.nodeDetails.content.data;
+                    this.nodeDetails.content.data = new Map();
+                    for (let value of data) {
+                        this.nodeDetails.content.data[value.score] = value.values
+                    }
+                    this.defaultExpandDepth = 2
+                } else if (this.nodeDetails.info.type == 'HASH') {
+                    this.nodeDetails.content.data = this.nodeDetails.content.data[0];
+                    this.defaultExpandDepth = 3
+                }
                 this.isLoadingContent = false;
             },
 
@@ -215,7 +217,8 @@
                         }).catch((e) => {
                             this.$store.commit(ADD_ERROR, e);
                         })
-                    }, noHandler: () => {}
+                    }, noHandler: () => {
+                    }
                 });
             },
 
