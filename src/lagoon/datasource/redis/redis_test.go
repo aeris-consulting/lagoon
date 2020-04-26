@@ -167,7 +167,7 @@ func TestRedisClient_ListAllEntryPoints(t *testing.T) {
 	}
 	assert.Equal(t, 804, len(actualData))
 
-	// List all the entry points at once.
+	// List all the entry points of level 0 only.
 	dataChannel = make(chan datasource.DataBatch, 100)
 	actionStatus, err = client.ListEntryPoints("*", dataChannel, 0, 0)
 	assert.Nil(t, err)
@@ -187,6 +187,64 @@ func TestRedisClient_ListAllEntryPoints(t *testing.T) {
 		actualData = append(actualData, batch.Data...)
 	}
 	assert.Equal(t, 804, len(actualData)) // There are four root nodes plus all the leaves.
+}
+
+func TestRedisClient_ListEntryPointsWithKeyHashTags(t *testing.T) {
+	// given
+	testData := []string{
+		"{any:value}:split:here",
+		"{{any:value}:here}:and:split-there",
+		"just:{split:after}:there",
+	}
+
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+		},
+	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	for _, d := range testData {
+		client.client.Set(d, d, time.Minute)
+	}
+
+	// List all the entry points in several parts.
+	dataChannel := make(chan datasource.DataBatch, 10)
+
+	// when
+	actionStatus, err := client.ListEntryPoints("*", dataChannel, 0, 4)
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, datasource.Moved, actionStatus)
+
+	actualData := []interface{}{}
+	for batch := range dataChannel {
+		actualData = append(actualData, batch.Data...)
+	}
+	keys := []interface{}{}
+	for _, entrypoint := range actualData {
+		keys = append(keys, string(entrypoint.(*datasource.EntryPointNode).Path))
+	}
+
+	expectedResult := []interface{}{
+		"just",
+		"just:{split:after}",
+		"just:{split:after}:there",
+		"{any:value}",
+		"{any:value}:split",
+		"{any:value}:split:here",
+		"{{any:value}:here}",
+		"{{any:value}:here}:and",
+		"{{any:value}:here}:and:split-there",
+	}
+
+	EqualUnorderedSlices(t, keys, expectedResult)
 }
 
 func TestRedisClient_ListEntryPointsWithOneFilter(t *testing.T) {
@@ -822,8 +880,7 @@ func TestRedisClient_GetContentForSet(t *testing.T) {
 			"my-value",
 		},
 	}
-	assert.Equal(t, expected.Size, result.Size)
-	assert.True(t, sliceUnorderedEqual(result.Data, expected.Data), "Expected content is %+v, but actual is %+v", expected.Data, result.Data)
+	EqualUnorderedSlices(t, result.Data, expected.Data)
 }
 
 func TestRedisClient_GetContentForList(t *testing.T) {
@@ -864,8 +921,7 @@ func TestRedisClient_GetContentForList(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, expected.Size, result.Size)
-	assert.True(t, sliceUnorderedEqual(result.Data, expected.Data), "Expected content is %+v, but actual is %+v", expected.Data, result.Data)
+	EqualUnorderedSlices(t, result.Data, expected.Data)
 }
 
 func TestRedisClient_GetContentForOrderedSet(t *testing.T) {
@@ -1244,9 +1300,9 @@ func TestRedisClient_ExecuteUnknownCommand(t *testing.T) {
 	assert.Contains(t, err.Error(), "ERR unknown command")
 }
 
-func sliceUnorderedEqual(a, b []interface{}) bool {
+func EqualUnorderedSlices(t *testing.T, a, b []interface{}) {
 	if len(a) != len(b) {
-		return false
+		t.Error(fmt.Sprintf("Lengths are different: %d != %d", len(a), len(b)))
 	}
 	for _, v1 := range a {
 		equal := false
@@ -1257,10 +1313,9 @@ func sliceUnorderedEqual(a, b []interface{}) bool {
 			}
 		}
 		if !equal {
-			return false
+			t.Error(fmt.Sprintf("Expected: '%v' \n\t\tbut actual '%v'\n\t\texpected value '%v' was not found", b, a, v1))
 		}
 	}
-	return true
 }
 
 func TestRedisClient_GetContentForStream(t *testing.T) {

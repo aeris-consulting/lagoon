@@ -40,6 +40,42 @@ func init() {
 	datasource.DeclareImplementation(&RedisVendor{})
 }
 
+const (
+	pathSeparator         = rune(':')
+	pathSeparatorAsString = ":"
+	openingBracket        = rune('{')
+	closingBracket        = rune('}')
+)
+
+func split(key string) (uint, []string) {
+	tokenCount := uint(0)
+	openBrackets := 0
+	var token = make([]rune, len(key))
+	runeIndexInToken := 0
+	buffer := []string{}
+	for _, r := range []rune(key) {
+		// We split with pathSeparator only when no bracket is open.
+		if r == pathSeparator && openBrackets == 0 {
+			buffer = append(buffer, string(token[:runeIndexInToken]))
+			tokenCount = tokenCount + 1
+			runeIndexInToken = 0
+		} else {
+			token[runeIndexInToken] = r
+			runeIndexInToken = runeIndexInToken + 1
+			if r == openingBracket {
+				openBrackets = openBrackets + 1
+			} else if r == closingBracket && openBrackets > 0 {
+				openBrackets = openBrackets - 1
+			}
+		}
+	}
+	if runeIndexInToken > 0 {
+		buffer = append(buffer, string(token[:runeIndexInToken]))
+		tokenCount = tokenCount + 1
+	}
+	return tokenCount, buffer
+}
+
 func (c *RedisVendor) Accept(source *datasource.DataSourceDescriptor) bool {
 	return "redis" == strings.TrimSpace(strings.ToLower(source.Vendor))
 }
@@ -134,7 +170,7 @@ func getClusterStatus(c *redis.ClusterClient) (datasource.ClusterState, error) {
 		Values: make(map[string]interface{}),
 	}
 	for _, i := range strings.Split(clusterInfos, "\r\n") {
-		convertAndPutValue(i, clusterSection.Values)
+		convertClusterInfoAndPutValue(i, clusterSection.Values)
 	}
 	result.StateSections = append(result.StateSections, clusterSection)
 
@@ -174,7 +210,7 @@ func getNodeInfo(nodeClient *redis.Client, nodeState *datasource.NodeState) erro
 					Values: make(map[string]interface{}),
 				}
 			} else {
-				convertAndPutValue(v, section.Values)
+				convertClusterInfoAndPutValue(v, section.Values)
 			}
 		}
 	}
@@ -184,7 +220,7 @@ func getNodeInfo(nodeClient *redis.Client, nodeState *datasource.NodeState) erro
 	return nil
 }
 
-func convertAndPutValue(v string, section map[string]interface{}) {
+func convertClusterInfoAndPutValue(v string, section map[string]interface{}) {
 	values := strings.Split(v, ":")
 	if len(values) >= 2 { // Eliminate prefixes like "cluster info:"
 		numValue, err := strconv.Atoi(values[len(values)-1])
@@ -507,12 +543,10 @@ func (c *RedisClient) scanOneNode(scanningRedisClient redis.Cmdable, validateOwn
 	var (
 		cursor          uint64
 		keys            []string
-		tokens          []string
 		entrypoint      string
 		err             error
 		scannedKeyCount int
 	)
-
 	excludedKeys := make(map[string]bool)
 
 	for err == nil {
@@ -533,34 +567,34 @@ func (c *RedisClient) scanOneNode(scanningRedisClient redis.Cmdable, validateOwn
 					}
 				}
 
-				tokens = strings.Split(key, ":")
-				if uint(len(tokens)) > minTreeLevel {
+				tokenCount, tokens := split(key)
+				if tokenCount > minTreeLevel {
 					entrypoint = ""
 					// Complete path and save the number of children
 					acquireMutex()
 
 					// Create the entrypoint prefix containing the ignored levels of trees.
 					entryPointPrefix := ""
-					if minTreeLevel > 0 && minTreeLevel < uint(len(tokens)) {
+					if minTreeLevel > 0 && minTreeLevel < tokenCount {
 						for level := uint(0); level < minTreeLevel; level++ {
 							if entryPointPrefix == "" {
 								entryPointPrefix = tokens[level]
 							} else {
-								entryPointPrefix += ":" + tokens[level]
+								entryPointPrefix += pathSeparatorAsString + tokens[level]
 							}
 						}
-						entryPointPrefix += ":"
+						entryPointPrefix += pathSeparatorAsString
 					}
 
-					for level := minTreeLevel; level <= maxTreeLevel && level < uint(len(tokens)); level++ {
+					for level := minTreeLevel; level <= maxTreeLevel && level < tokenCount; level++ {
 						if entrypoint == "" {
 							entrypoint = tokens[level]
 						} else {
-							entrypoint += ":" + tokens[level]
+							entrypoint += pathSeparatorAsString + tokens[level]
 						}
 						existingNode, exists := entrypoints[entrypoint]
 
-						if level < uint(len(tokens)-1) {
+						if level < tokenCount-1 {
 							if exists {
 								existingNode.Length = existingNode.Length + 1
 							} else {
