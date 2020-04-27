@@ -29,7 +29,7 @@
 
 <script>
     import {FETCH_ENTRY_POINTS} from '../store/actions.type';
-    import {UNSELECT_NODE} from '../store/mutations.type';
+    import {NODE_DELETED} from '../store/mutations.type';
     import Entrypoint from './Entrypoint.vue';
 
     export default {
@@ -84,7 +84,7 @@
 
         created() {
             this.$store.subscribe((mutation) => {
-                if (mutation.type === UNSELECT_NODE) {
+                if (mutation.type === NODE_DELETED) {
                     const deletedNode = mutation.payload
                     if (deletedNode.level === 0) {
                         this.refresh();

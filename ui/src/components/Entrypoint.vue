@@ -50,7 +50,7 @@
     import EventBus from '../eventBus';
     import NodeHelper from "../helpers/nodeHelper";
     import {DELETE_CHILDREN_NODE, FETCH_ENTRY_POINTS, SELECT_NODE} from '../store/actions.type';
-    import {ADD_ERROR, UNSELECT_NODE} from '../store/mutations.type';
+    import {ADD_ERROR, NODE_DELETED} from '../store/mutations.type';
 
     export default {
         name: 'entrypoint',
@@ -159,7 +159,7 @@
 
         created() {
             this.$store.subscribe((mutation) => {
-                if (mutation.type === UNSELECT_NODE) {
+                if (mutation.type === NODE_DELETED) {
                     const deletedNode = mutation.payload
                     if (this.node && this.node.children && this.node.children.length) {
                         let deletedChildNode = this.node.children.find(c => c.fullPath === deletedNode.fullPath);

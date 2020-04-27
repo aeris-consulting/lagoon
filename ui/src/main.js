@@ -14,7 +14,8 @@ import {
     faSync,
     faTerminal,
     faTimes,
-    faTrash
+    faTrash,
+    faThumbtack
 } from '@fortawesome/free-solid-svg-icons'
 import {faGithub} from '@fortawesome/free-brands-svg-icons'
 import {FontAwesomeIcon} from '@fortawesome/vue-fontawesome'
@@ -28,7 +29,7 @@ import { ApiService } from './services/api.service'
 
 ApiService.init()
 
-library.add(faAngleRight, faAngleDown, faSync, faTrash, faEye, faClock, faEdit, faPlay, faStop, faCopy, faPlus, faGithub, faTerminal, faTimes);
+library.add(faAngleRight, faAngleDown, faSync, faTrash, faEye, faClock, faEdit, faPlay, faStop, faCopy, faPlus, faGithub, faTerminal, faTimes, faThumbtack);
 Vue.config.productionTip = false;
 Vue.component('font-awesome-icon', FontAwesomeIcon);
 Vue.use(VueClipboard);

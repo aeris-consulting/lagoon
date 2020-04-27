@@ -38,8 +38,11 @@
                             background-color="primary"
                             dark
                             splitpanes-size="70">
-                            <v-tab v-for="n in selectedNodes" :key="n.fullPath">
+                            <v-tab v-for="n in selectedNodes" :key="n.fullPath" @contextmenu.prevent="$refs.menu.open($event, {node: n, pinned: nodeIsPinnedMap[n.fullPath]})">
                                 <span class="tab-title" :title="n.fullPath">
+                                    <span class="pin-icon" v-if="nodeIsPinnedMap[n.fullPath]">
+                                        <font-awesome-icon icon="thumbtack"/>
+                                    </span>
                                     {{ n.fullPath }}
                                 </span>
                             </v-tab>
@@ -63,22 +66,49 @@
         <terminal
                 v-if="selectedDatasourceId">
         </terminal>
+
+        <vue-context ref="menu">
+            <template slot-scope="scope">
+                <template v-if="scope.data">
+                    <li>
+                        <a href="#" @click.prevent="closeTab(scope.data.node)">Close</a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="closeOthers(scope.data.node)">Close Others</a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="closeAllButPinned()">Close All but Pinned</a>
+                    </li>
+                    <li>
+                        <a href="#" @click.prevent="togglePin(scope.data.node)">
+                            <template v-if="scope.data.pinned">
+                                Unpin
+                            </template>
+                            <template v-else>
+                                Pin
+                            </template>
+                        </a>
+                    </li>
+                </template>
+            </template>
+        </vue-context>
     </div>
 </template>
 
 <script>
+    import {VueContext} from 'vue-context';
     import EntrypointList from "./EntrypointList";
     import EntrypointContent from "./EntrypointContent";
     import Terminal from './Terminal.vue';
     import Splitpanes from 'splitpanes'
     import {mapState} from 'vuex'
     import {FETCH_DATASOURCE, SELECT_DATASOURCE} from '../store/actions.type'
-    import {ADD_SELECTED_NODE} from '../store/mutations.type'
+    import {ADD_SELECTED_NODE, UNSELECT_NODE, SET_SELECTED_NODES} from '../store/mutations.type'
     import EventBus from "../eventBus";
 
     export default {
         name: 'DataSourceList',
-        components: {EntrypointList, EntrypointContent, Splitpanes, Terminal},
+        components: {EntrypointList, EntrypointContent, Splitpanes, Terminal, VueContext},
 
         computed: mapState({
             datasources: state => state.datasource.datasources,
@@ -89,11 +119,36 @@
         data() {
             return {
                 activeNodeIndex: null,
-                errors: []
+                errors: [],
+                nodeIsPinnedMap: {},
             }
         },
 
         methods: {
+            closeTab (node) {
+                this.$store.commit(UNSELECT_NODE, node)
+            },
+
+            closeOthers(node) {
+                const nodesToKeep = this.selectedNodes.filter(n => (this.nodeIsPinnedMap[n.fullPath] || n.fullPath === node.fullPath))
+                this.$store.commit(SET_SELECTED_NODES, nodesToKeep)
+            },
+
+            closeAllButPinned() {
+                const pinnedNodes = this.selectedNodes.filter(n => this.nodeIsPinnedMap[n.fullPath])
+                this.$store.commit(SET_SELECTED_NODES, pinnedNodes)
+            },
+
+            togglePin(node) {
+                const nodeIsPinnedMap = { ...this.nodeIsPinnedMap };
+                if (nodeIsPinnedMap[node.fullPath]) {
+                    delete nodeIsPinnedMap[node.fullPath]
+                } else {
+                    nodeIsPinnedMap[node.fullPath] = true
+                }
+                this.nodeIsPinnedMap = nodeIsPinnedMap
+            },
+
             refresh() {
                 this.$store.dispatch(FETCH_DATASOURCE)
             },
@@ -118,6 +173,7 @@
 </script>
 
 <style lang="scss" scoped>
+    @import  '~vue-context/src/sass/vue-context';
 
     .splitpanes {
         // 74px = 64px (navbar) + 10px (margin-top)
