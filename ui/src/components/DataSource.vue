@@ -33,21 +33,23 @@
                      splitpanes-size="70">
                     <template v-if="selectedNodes.length > 0">
                         <v-tabs
-                                background-color="primary"
-                                dark
-                                splitpanes-size="70">
-                            <template v-for="n in selectedNodes">
-                                <v-tab :key="n.fullPath">
-                                    <span class="tab-title" :title="n.fullPath">
-                                        {{ n.fullPath }}
-                                    </span>
-                                </v-tab>
-                                <v-tab-item :key="n.fullPath + '-tab-item'">
-                                    <entrypoint-content
-                                            :node="n"></entrypoint-content>
-                                </v-tab-item>
-                            </template>
+                            v-model="activeNodeIndex"
+                            show-arrows
+                            background-color="primary"
+                            dark
+                            splitpanes-size="70">
+                            <v-tab v-for="n in selectedNodes" :key="n.fullPath">
+                                <span class="tab-title" :title="n.fullPath">
+                                    {{ n.fullPath }}
+                                </span>
+                            </v-tab>
                         </v-tabs>
+                        <v-tabs-items v-model="activeNodeIndex">
+                            <v-tab-item v-for="n in selectedNodes" :key="n.fullPath">
+                                <entrypoint-content
+                                        :node="n"></entrypoint-content>
+                            </v-tab-item>
+                        </v-tabs-items>
                     </template>
                     <template v-else>
                         <div>
@@ -71,6 +73,7 @@
     import Splitpanes from 'splitpanes'
     import {mapState} from 'vuex'
     import {FETCH_DATASOURCE, SELECT_DATASOURCE} from '../store/actions.type'
+    import {ADD_SELECTED_NODE} from '../store/mutations.type'
     import EventBus from "../eventBus";
 
     export default {
@@ -85,6 +88,7 @@
 
         data() {
             return {
+                activeNodeIndex: null,
                 errors: []
             }
         },
@@ -102,6 +106,13 @@
 
         created() {
             this.refresh();
+
+            this.$store.subscribe((mutation) => {
+                if (mutation.type === ADD_SELECTED_NODE) {
+                    const selectedNode = mutation.payload
+                    this.activeNodeIndex = this.selectedNodes.findIndex(n => n.fullPath === selectedNode.fullPath)
+                }
+            })
         }
     }
 </script>

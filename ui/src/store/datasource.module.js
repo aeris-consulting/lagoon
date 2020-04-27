@@ -12,7 +12,7 @@ import {
     SET_DATASOURCES,
     SET_ENTRY_POINTS,
     SET_SELECTED_DATASOURCE,
-    SET_SELECTED_NODE,
+    ADD_SELECTED_NODE,
     UNSELECT_NODE
 } from './mutations.type';
 
@@ -69,7 +69,7 @@ export const actions = {
             });
     },
     [SELECT_NODE](context, node) {
-        context.commit(SET_SELECTED_NODE, node);
+        context.commit(ADD_SELECTED_NODE, node);
         return node;
     },
     [FETCH_ENTRY_POINTS](context, request) {
@@ -111,8 +111,10 @@ export const mutations = {
     [SET_SELECTED_DATASOURCE](state, selectedDatasourceId) {
         state.selectedDatasourceId = selectedDatasourceId;
     },
-    [SET_SELECTED_NODE](state, node) {
-        state.selectedNodes = [node];
+    [ADD_SELECTED_NODE](state, node) {
+        if (!state.selectedNodes.some(n => n.fullPath === node.fullPath)) {
+            state.selectedNodes.push(node)
+        }
     },
     [UNSELECT_NODE](state, node) {
         state.selectedNodes = state.selectedNodes.filter(n => n.fullPath !== node.fullPath);
