@@ -121,6 +121,7 @@
                 activeNodeIndex: null,
                 errors: [],
                 nodeIsPinnedMap: {},
+                bar: 1
             }
         },
 
