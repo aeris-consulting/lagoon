@@ -12,8 +12,10 @@ import {
     SET_DATASOURCES,
     SET_ENTRY_POINTS,
     SET_SELECTED_DATASOURCE,
-    SET_SELECTED_NODE,
-    UNSELECT_NODE
+    ADD_SELECTED_NODE,
+    UNSELECT_NODE,
+    SET_SELECTED_NODES,
+    NODE_DELETED
 } from './mutations.type';
 
 import {DatasourcesService} from '../services/api.service'
@@ -56,6 +58,7 @@ export const actions = {
     [DELETE_NODE](context, node) {
         return DatasourcesService.deleteEntrypoint(context.state.selectedDatasourceId, node.fullPath)
             .then(() => {
+                context.commit(NODE_DELETED, node);
                 context.commit(UNSELECT_NODE, node);
             })
             .catch((e) => {
@@ -69,7 +72,7 @@ export const actions = {
             });
     },
     [SELECT_NODE](context, node) {
-        context.commit(SET_SELECTED_NODE, node);
+        context.commit(ADD_SELECTED_NODE, node);
         return node;
     },
     [FETCH_ENTRY_POINTS](context, request) {
@@ -111,8 +114,13 @@ export const mutations = {
     [SET_SELECTED_DATASOURCE](state, selectedDatasourceId) {
         state.selectedDatasourceId = selectedDatasourceId;
     },
-    [SET_SELECTED_NODE](state, node) {
-        state.selectedNodes = [node];
+    [ADD_SELECTED_NODE](state, node) {
+        if (!state.selectedNodes.some(n => n.fullPath === node.fullPath)) {
+            state.selectedNodes.push(node)
+        }
+    },
+    [SET_SELECTED_NODES](state, nodes) {
+        state.selectedNodes = [...nodes]
     },
     [UNSELECT_NODE](state, node) {
         state.selectedNodes = state.selectedNodes.filter(n => n.fullPath !== node.fullPath);

@@ -11,7 +11,10 @@ import {
     faPlus,
     faStop,
     faSync,
-    faTrash
+    faTerminal,
+    faTimes,
+    faTrash,
+    faThumbtack
 } from '@fortawesome/free-solid-svg-icons'
 import {
     faGithub
@@ -22,7 +25,7 @@ import VModal from 'vue-js-modal'
 import JsonViewer from 'vue-json-viewer'
 import Vuetify from 'vuetify'
 
-library.add(faAngleRight, faAngleDown, faSync, faTrash, faEye, faClock, faEdit, faPlay, faStop, faCopy, faPlus, faGithub);
+library.add(faAngleRight, faAngleDown, faSync, faTrash, faEye, faClock, faEdit, faPlay, faStop, faCopy, faPlus, faGithub, faTerminal, faTimes, faThumbtack);
 Vue.config.productionTip = false;
 Vue.component('font-awesome-icon', FontAwesomeIcon);
 Vue.use(VueClipboard);

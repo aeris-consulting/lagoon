@@ -119,7 +119,7 @@
     import JsonHelper from '../helpers/jsonHelper';
     import NodeHelper from '../helpers/nodeHelper';
     import {DELETE_NODE, FETCH_NODE_DETAILS} from '../store/actions.type';
-    import {ADD_ERROR, UNSELECT_NODE} from "../store/mutations.type";
+    import {ADD_ERROR} from "../store/mutations.type";
 
     const humanizeDuration = require('humanize-duration');
 
@@ -199,7 +199,6 @@
                         this.stopObserve();
 
                         this.$store.dispatch(DELETE_NODE, this.node).then(() => {
-                            this.$store.commit(UNSELECT_NODE, this.node);
                             // Update the tree.
                             this.node.hasContent = false;
                             if (!this.node.hasChildren && !this.node.hasContent) {
