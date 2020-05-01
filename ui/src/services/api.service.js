@@ -153,9 +153,7 @@ export const DatasourcesService = {
             // eslint-disable-next-line
             console.log("Closing the websocket");
             socket.close(1000, "End of data");
-            // remove duplication and sort
             receivedValues = receivedValues
-              .filter((v, i, a) => a.findIndex(t => (t.path === v.path)) === i)
               .sort((a, b) => {
                 return a.path < b.path ? -1 : 1
             });
