@@ -201,11 +201,6 @@
                         this.$store.dispatch(DELETE_NODE, this.node).then(() => {
                             // Update the tree.
                             this.node.hasContent = false;
-                            if (!this.node.hasChildren && !this.node.hasContent) {
-                                let deletedNodeIndex = this.node.parent.children.findIndex(c => c.fullPath === this.node.fullPath);
-                                this.node.parent.children.splice(deletedNodeIndex, 1)
-                            }
-
                             let nodeToRefresh = this.node.parent;
                             while (nodeToRefresh != null) {
                                 nodeToRefresh.length -= 1;
