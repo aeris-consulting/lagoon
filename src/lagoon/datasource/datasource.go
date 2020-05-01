@@ -26,6 +26,7 @@ const (
 	Hash      EntryPointType = 5
 	Stream    EntryPointType = 6
 
+	// Count of data batches after which the result is returned asynchronously in a web.socket.
 	SwitchToWsBarrier uint8 = 20
 )
 

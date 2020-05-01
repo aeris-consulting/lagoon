@@ -1300,6 +1300,14 @@ func TestRedisClient_ExecuteUnknownCommand(t *testing.T) {
 	assert.Contains(t, err.Error(), "ERR unknown command")
 }
 
+func TestRedisClient_GetContentForStream(t *testing.T) {
+	// TODO
+}
+
+func TestRedisClient_Consume(t *testing.T) {
+	// TODO
+}
+
 func EqualUnorderedSlices(t *testing.T, a, b []interface{}) {
 	if len(a) != len(b) {
 		t.Error(fmt.Sprintf("Lengths are different: %d != %d", len(a), len(b)))
@@ -1316,12 +1324,4 @@ func EqualUnorderedSlices(t *testing.T, a, b []interface{}) {
 			t.Error(fmt.Sprintf("Expected: '%v' \n\t\tbut actual '%v'\n\t\texpected value '%v' was not found", b, a, v1))
 		}
 	}
-}
-
-func TestRedisClient_GetContentForStream(t *testing.T) {
-	// TODO
-}
-
-func TestRedisClient_Consume(t *testing.T) {
-	// TODO
 }

@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const webSocketBatchSize = uint64(100)
+const webSocketBatchSize = uint64(1000)
 
 type DataSourceHeader struct {
 	Id          datasource.DataSourceId `json:"id" binding:"required"`
@@ -356,6 +356,7 @@ func ReadChannelContentAndSendToWebSocket(c *gin.Context) {
 				}
 			}
 		}
+		err = conn.WriteJSON(datasource.DataBatch{})
 	}
 
 	if errorChannel != nil {
@@ -373,14 +374,13 @@ func splitBatch(dataToSplit datasource.DataBatch) []datasource.DataBatch {
 	if dataToSplit.Size <= webSocketBatchSize {
 		return []datasource.DataBatch{dataToSplit}
 	} else {
-		result := []datasource.DataBatch{}
+		var result []datasource.DataBatch
 		for i := uint64(0); i < dataToSplit.Size; i += webSocketBatchSize {
 			d := datasource.DataBatch{}
 			start := i
 			end := uint64(math.Min(float64(i+webSocketBatchSize), float64(dataToSplit.Size)))
-			for j := start; j < end; j++ {
-				d.Data = append(d.Data, dataToSplit.Data[j])
-			}
+			d.Data = append(d.Data, dataToSplit.Data[start:end]...)
+
 			d.Size = uint64(len(d.Data))
 			result = append(result, d)
 		}
