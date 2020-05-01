@@ -49,16 +49,16 @@ export const ApiService = {
 
 export const DatasourcesService = {
   async executeCommand(commands, nodeId, datasourceId) {
-    return ApiService.post(`data/${datasourceId}/command`, {args: commands, nodeId: nodeId})
+    return ApiService.post(`data/${encodeURIComponent(datasourceId)}/command`, {args: commands, nodeId: nodeId})
         .then(response => {
-            return response.data;
+          return response.data;
         }).catch(e => {
-            return Promise.reject(e.response.data.error)
+          return Promise.reject(e.response.data.error)
         });
   },
 
   getClusterNodes(datasourceId) {
-    return ApiService.get(`data/${datasourceId}/infos`)
+    return ApiService.get(`data/${encodeURIComponent(datasourceId)}/infos`)
         .then(response => {
           const infos = response.data.infos;
           if (infos != null && infos.nodes != null) {
@@ -72,7 +72,7 @@ export const DatasourcesService = {
 
   getNodeDetails(datasource, node) {
     const fullPath = node.fullPath;
-    const nodeResourcePath = `data/${datasource.id}/entrypoint/${fullPath}`
+    const nodeResourcePath = `data/${encodeURIComponent(datasource.id)}/entrypoint/${encodeURIComponent(fullPath)}`
     const details = {};
     return new Promise((resolve, reject) => {
       ApiService.get(`${nodeResourcePath}/info`, {format: 'json'})
@@ -115,7 +115,7 @@ export const DatasourcesService = {
 
   listEntryPoints(requestObj) {
     const { id, filter, minLevel, maxLevel } = requestObj;
-    return ApiService.get(`data/${id}/entrypoint`, {
+    return ApiService.get(`data/${encodeURIComponent(id)}/entrypoint`, {
       params: {
         filter,
         min: minLevel,
@@ -127,14 +127,14 @@ export const DatasourcesService = {
   },
 
   deleteEntrypoint(datasourceId, fullPath) {
-    return ApiService.delete(`data/${datasourceId}/entrypoint/${fullPath}`, {format: 'json'})
+    return ApiService.delete(`data/${encodeURIComponent(datasourceId)}/entrypoint/${encodeURIComponent(fullPath)}`, {format: 'json'})
         .catch(e => {
           return Promise.reject(e.response.data.error)
         })
   },
 
   deleteEntrypointChildren(datasourceId, fullPath) {
-    return ApiService.delete(`data/${datasourceId}/entrypoint/${fullPath}/children`, {format: 'json'})
+    return ApiService.delete(`data/${encodeURIComponent(datasourceId)}/entrypoint/${encodeURIComponent(fullPath)}/children`, {format: 'json'})
         .catch(e => {
           return Promise.reject(e.response.data.error)
         })

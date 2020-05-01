@@ -18,9 +18,9 @@
             </div>
         </div>
 
-        <div class="entrypoint-children-panel" v-if="nodes && nodes.length > 0">
+        <div class="entrypoint-children-panel" v-if="node.children && node.children.length > 0">
             <entrypoint :filter="filter" :key="index" :node="node" :readonly="datasource.readonly"
-                        v-for="(node, index) in nodes">
+                        v-for="(node, index) in node.children">
             </entrypoint>
 
         </div>
@@ -53,7 +53,7 @@
             return {
                 filter: '',
                 loading: false,
-                nodes: []
+                node: {children: []}
             }
         },
 
@@ -61,21 +61,22 @@
 
             refresh() {
                 this.loading = true;
-                this.nodes = []
+                this.node = {children: []}
                 this.$store.dispatch(FETCH_ENTRY_POINTS, {
                     filter: this.filter,
                     entrypointPrefix: null,
                     minLevel: 0,
                     maxLevel: 0,
                 }).then(data => {
-                    this.loading = false;
-                    this.nodes = data.map(n => {
+                    this.node.children = data.map(n => {
+                        n.parent = this.node
                         n.hasChildren = n.length > 0
                         n.name = n.path
                         n.fullPath = n.path
                         n.level = 0
                         return n;
                     });
+                    this.loading = false;
                 }).catch(() => {
                     this.loading = false;
                 })

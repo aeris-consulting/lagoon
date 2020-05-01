@@ -125,6 +125,7 @@ func setupRouter() *gin.Engine {
 	r := gin.Default()
 	r.RedirectTrailingSlash = true
 	r.RedirectFixedPath = true
+	r.UseRawPath = true
 
 	r.Use(cors.Default())
 
