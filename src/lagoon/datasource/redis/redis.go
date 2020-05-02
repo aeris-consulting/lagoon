@@ -500,15 +500,15 @@ func (c *RedisClient) extractEntryPointsWithLevels(err error, filter string, min
 			// Push messages when valuesToSend is equal to the scan size.
 			if int64(len(valuesToSend)) == scanSize {
 				c.sendValuesToChannel(valuesToSend, entrypointsChannel)
-				valuesToSend = valuesToSend[:0]
+				valuesToSend = nil
 			}
 		}
 		// After the loop, there might be residual values.
-		c.sendValuesToChannel(valuesToSend, entrypointsChannel)
+		if len(valuesToSend) > 0 {
+			c.sendValuesToChannel(valuesToSend, entrypointsChannel)
+		}
 	}
 
-	// End of the stream.
-	entrypointsChannel <- datasource.DataBatch{}
 	close(entrypointsChannel)
 }
 
@@ -680,8 +680,6 @@ func (c *RedisClient) scan(filter string, dataChannel chan<- datasource.DataBatc
 					}
 				}
 
-				// End of the stream.
-				dataChannel <- datasource.DataBatch{}
 				close(dataChannel)
 				log.Println("Leaving the reading routine")
 			}()

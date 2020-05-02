@@ -1,20 +1,25 @@
 name: Node CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - master
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
-
+    timeout-minutes: 10
+    runs-on: 'ubuntu-latest'
     steps:
-    - uses: actions/checkout@v1
-    - name: Use Yarn
-      uses: nuxt/actions-yarn@node-10
-    - name: yarn install and test
-      working-directory: ./ui
-      run: |
-        yarn
-        yarn test:unit
-      env:
-        CI: true
+      - uses: actions/checkout@v1
+      - name: Use Yarn
+        uses: nuxt/actions-yarn@node-10
+      - name: yarn install and test
+        working-directory: ./ui
+        run: |
+          yarn
+          yarn test:unit
+        env:
+          CI: true
