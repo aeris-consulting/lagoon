@@ -976,18 +976,32 @@ func TestRedisClient_GetContentForOrderedSet(t *testing.T) {
 	assert.Equal(t, datasource.Completed, actionStatus)
 	result := <-data
 	expected := datasource.DataBatch{
-		Size: 1,
+		Size: 5,
 		Data: []interface{}{
-			map[float64][]string{
-				0.5:   {"my-first-value", "my-second-value"},
-				1.5:   {"1234"},
-				2.5:   {"my-third-value"},
-				14.5:  {"12654"},
-				231.5: {"562763.76"},
+			SortedSetValues{
+				Score:  0.5,
+				Values: []string{"my-first-value", "my-second-value"},
+			},
+			SortedSetValues{
+				Score:  1.5,
+				Values: []string{"1234"},
+			},
+			SortedSetValues{
+				Score:  2.5,
+				Values: []string{"my-third-value"},
+			},
+			SortedSetValues{
+				Score:  14.5,
+				Values: []string{"12654"},
+			},
+			SortedSetValues{
+				Score:  231.5,
+				Values: []string{"562763.76"},
 			},
 		},
 	}
-	assert.Equal(t, expected, result)
+	assert.Equal(t, result.Size, expected.Size)
+	EqualUnorderedSlices(t, result.Data, expected.Data)
 }
 
 func TestRedisClient_GetContentForMissingKey(t *testing.T) {
@@ -1308,20 +1322,20 @@ func TestRedisClient_Consume(t *testing.T) {
 	// TODO
 }
 
-func EqualUnorderedSlices(t *testing.T, a, b []interface{}) {
-	if len(a) != len(b) {
-		t.Error(fmt.Sprintf("Lengths are different: %d != %d", len(a), len(b)))
+func EqualUnorderedSlices(t *testing.T, actual, expected []interface{}) {
+	if len(actual) != len(expected) {
+		t.Error(fmt.Sprintf("Lengths are different: %d != %d", len(actual), len(expected)))
 	}
-	for _, v1 := range a {
+	for _, v1 := range actual {
 		equal := false
-		for _, v2 := range b {
-			if v1 == v2 {
+		for _, v2 := range expected {
+			if reflect.DeepEqual(v1, v2) {
 				equal = true
 				break
 			}
 		}
 		if !equal {
-			t.Error(fmt.Sprintf("Expected: '%v' \n\t\tbut actual '%v'\n\t\texpected value '%v' was not found", b, a, v1))
+			t.Error(fmt.Sprintf("Expected: '%v' \n\t\tbut actual '%v'\n\t\tactual value '%v' was not found", expected, actual, v1))
 		}
 	}
 }

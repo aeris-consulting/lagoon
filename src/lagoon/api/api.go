@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const webSocketBatchSize = uint64(1000)
+const webSocketBatchSize = uint64(500)
 
 type DataSourceHeader struct {
 	Id          datasource.DataSourceId `json:"id" binding:"required"`
