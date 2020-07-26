@@ -49,6 +49,8 @@ export const actions = {
         return DatasourcesService.getNodeDetails(context.getters.getSelected, node)
             .then((details) => {
                 return details
+            }).catch(e => {
+                context.commit(ADD_ERROR, e);
             });
     },
     [SELECT_DATASOURCE](context, datasourceId) {
