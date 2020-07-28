@@ -23,6 +23,16 @@ export const ApiService = {
   init() {
     Vue.use(VueAxios, axios);
     Vue.axios.defaults.baseURL = apiRoot;
+    Vue.axios.interceptors.response.use((response) => {
+      return response;
+    }, (error) => {
+      if (error && error.response && error.response.status) {
+        if (error.response.status === 401 || error.response.status === 404) {
+          location.reload();
+        }
+      }
+      return Promise.reject(error);
+    })
   },
 
   get(url, params) {
@@ -105,6 +115,8 @@ export const DatasourcesService = {
             .catch(e => {
               reject(e.response.data.error)
             })
+        }).catch(e => {
+          reject(e)
         })
     });
   },

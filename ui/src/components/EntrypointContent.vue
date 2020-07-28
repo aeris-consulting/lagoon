@@ -146,22 +146,26 @@
             refresh: async function () {
                 this.lastRefresh = new Date();
                 this.isLoadingContent = true;
-                this.nodeDetails = await this.$store.dispatch(FETCH_NODE_DETAILS, this.node).catch((e) => {
-                    this.loading = false;
-                    this.$store.commit(ADD_ERROR, e);
-                });
-                if (this.nodeDetails.info.type == 'SCORED_SET') {
-                    const data = this.nodeDetails.content.data;
-                    this.nodeDetails.content.data = new Map();
-                    for (let value of data) {
-                        this.nodeDetails.content.data[value.score] = value.values
-                    }
-                    this.defaultExpandDepth = 2
-                } else if (this.nodeDetails.info.type == 'HASH') {
-                    this.nodeDetails.content.data = this.nodeDetails.content.data[0];
-                    this.defaultExpandDepth = 3
-                }
-                this.isLoadingContent = false;
+
+                this.$store.dispatch(FETCH_NODE_DETAILS, this.node)
+                    .then(nodeDetails => {
+                        this.nodeDetails = nodeDetails;
+                        if (this.nodeDetails.info.type == 'SCORED_SET') {
+                            const data = this.nodeDetails.content.data;
+                            this.nodeDetails.content.data = new Map();
+                            for (let value of data) {
+                                this.nodeDetails.content.data[value.score] = value.values
+                            }
+                            this.defaultExpandDepth = 2
+                        } else if (this.nodeDetails.info.type == 'HASH') {
+                            this.nodeDetails.content.data = this.nodeDetails.content.data[0];
+                            this.defaultExpandDepth = 3
+                        }
+                        this.isLoadingContent = false;
+                    }).catch((e) => {
+                        this.loading = false;
+                        this.$store.commit(ADD_ERROR, e);
+                    });
             },
 
             observe: function () {
