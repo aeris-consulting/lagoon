@@ -158,8 +158,15 @@
                             }
                             this.defaultExpandDepth = 2
                         } else if (this.nodeDetails.info.type == 'HASH') {
-                            this.nodeDetails.content.data = this.nodeDetails.content.data[0];
-                            this.defaultExpandDepth = 3
+                            const data = this.nodeDetails.content.data;
+                            this.nodeDetails.content.data = new Map();
+                            for (let value of data) {
+                                this.nodeDetails.content.data[value.key] = value.value
+                            }
+                            this.defaultExpandDepth = 2
+                        } else if (this.nodeDetails.info.type == 'VALUE') {
+                            // In case the value is a JSON, we open wide enough to be able to read it.
+                            this.defaultExpandDepth = 5
                         }
                         this.isLoadingContent = false;
                     }).catch((e) => {
