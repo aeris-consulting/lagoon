@@ -36,6 +36,11 @@ type SortedSetValues struct {
 	Values []string `json:"values"`
 }
 
+type HashValue struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 func init() {
 	datasource.DeclareImplementation(&RedisVendor{})
 }
@@ -645,14 +650,14 @@ func (c *RedisClient) scan(filter string, dataChannel chan<- datasource.DataBatc
 	} else {
 		var cursor uint64
 
-		var keys []string
+		var values []string
 		var err error
 
 		// Read first "pages" until the channel is full.
-		for i := 0; i < cap(dataChannel); i++ {
-			keys, cursor, err = scanFn(cursor, filter, scanSize).Result()
+		for len(dataChannel) < cap(dataChannel) {
+			values, cursor, err = scanFn(cursor, filter, scanSize).Result()
 			if err == nil {
-				c.sendValuesToChannel(formatFn(keys), dataChannel)
+				c.sendValuesToChannel(formatFn(values), dataChannel)
 				if cursor == 0 {
 					actionStatus = datasource.Completed
 					break
@@ -668,14 +673,14 @@ func (c *RedisClient) scan(filter string, dataChannel chan<- datasource.DataBatc
 
 			go func() {
 				for cursor != 0 {
-					keys, cursor, err = scanFn(cursor, filter, scanSize).Result()
-					c.sendValuesToChannel(formatFn(keys), dataChannel)
+					values, cursor, err = scanFn(cursor, filter, scanSize).Result()
+					c.sendValuesToChannel(formatFn(values), dataChannel)
 
 					if err != nil {
 						log.Printf("ERROR: %s\n", err.Error())
 						cursor = 0
 					} else {
-						log.Printf("Cursor: %d, keys length: %d\n", cursor, len(keys))
+						log.Printf("Cursor: %d, values length: %d\n", cursor, len(values))
 
 					}
 				}
@@ -689,9 +694,35 @@ func (c *RedisClient) scan(filter string, dataChannel chan<- datasource.DataBatc
 	return actionStatus, err
 }
 
-// identityFormat is a formatter function which returns the exact received values.
-func (c *RedisClient) identityFormat(values []string) interface{} {
-	return values
+func (c *RedisClient) fullScan(filter string, scanFn func(cursor uint64, match string, count int64) *redis.ScanCmd, appendFn func([]interface{}, []string) []interface{}) (datasource.DataBatch, error) {
+	var (
+		err    error
+		result datasource.DataBatch
+	)
+
+	err = c.client.Ping().Err()
+	if err == nil {
+		var cursor uint64
+
+		var allValues []interface{}
+		var values []string
+		var err error
+
+		// Read first "pages" until the channel is full.
+		scanned := false
+		for !scanned || cursor != 0 {
+			values, cursor, err = scanFn(cursor, filter, scanSize).Result()
+			if err == nil {
+				allValues = appendFn(allValues, values)
+			} else {
+				return result, err
+			}
+			scanned = true
+		}
+		result.Data = allValues
+		result.Size = uint64(len(allValues))
+	}
+	return result, err
 }
 
 func (c *RedisClient) sendValuesToChannel(values interface{}, target chan<- datasource.DataBatch) {
@@ -851,8 +882,8 @@ func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryP
 
 func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter string, contentChannel chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
 	var (
-		err          error
-		actionStatus datasource.ActionStatus
+		err    error
+		result datasource.DataBatch
 	)
 
 	key := string(entryPointValue)
@@ -865,30 +896,33 @@ func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter s
 		case "string":
 			value, err := c.getValue(entryPointValue)
 			if err == nil {
-				contentChannel <- datasource.DataBatch{
+				result = datasource.DataBatch{
 					Size: 1,
 					Data: []interface{}{value},
 				}
 			}
-			actionStatus = datasource.Completed
 		case "set":
-			return c.getSetValues(entryPointValue, filter, contentChannel)
+			result, err = c.getSetValues(entryPointValue, filter)
 		case "zset":
-			return c.getZSetValues(entryPointValue, filter, contentChannel)
+			result, err = c.getZSetValues(entryPointValue, filter)
 		case "list":
-			return c.getListValues(entryPointValue, filter, contentChannel)
+			result, err = c.getListValues(entryPointValue, filter)
 		case "hash":
-			return c.getFullHash(entryPointValue, filter, contentChannel)
+			result, err = c.getFullHash(entryPointValue, filter)
 		case "stream":
 			// TODO
+			err = errors.New(fmt.Sprintf("Type %s is unsupported", t))
 		case "none":
 			err = errors.New(fmt.Sprintf("Entrypoint %s was not found", entryPointValue))
 		default:
 			err = errors.New(fmt.Sprintf("Type %s is unsupported", t))
 		}
 	}
+	if err == nil {
+		contentChannel <- result
+	}
 
-	return actionStatus, err
+	return datasource.Completed, err
 }
 
 func (c *RedisClient) getValue(entryPointValue datasource.EntryPoint) (datasource.SingleValue, error) {
@@ -897,39 +931,64 @@ func (c *RedisClient) getValue(entryPointValue datasource.EntryPoint) (datasourc
 	return result.Val(), result.Err()
 }
 
-func (c *RedisClient) getSetValues(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
-	return c.scan(filter, target, func(cursor uint64, match string, count int64) *redis.ScanCmd {
+func (c *RedisClient) getSetValues(entryPointValue datasource.EntryPoint, filter string) (datasource.DataBatch, error) {
+	return c.fullScan(filter, func(cursor uint64, match string, count int64) *redis.ScanCmd {
 		return c.client.SScan(string(entryPointValue), cursor, match, count)
-	}, c.identityFormat)
+	}, func(allValues []interface{}, values []string) (result []interface{}) {
+		result = allValues
+		for _, v := range values {
+			result = append(result, v)
+		}
+		// Sort the values.
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].(string) < result[j].(string)
+		})
+		return
+	})
 }
 
-func (c *RedisClient) getZSetValues(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
-	return c.scan(filter, target, func(cursor uint64, match string, count int64) *redis.ScanCmd {
+func (c *RedisClient) getZSetValues(entryPointValue datasource.EntryPoint, filter string) (datasource.DataBatch, error) {
+	return c.fullScan(filter, func(cursor uint64, match string, count int64) *redis.ScanCmd {
 		return c.client.ZScan(string(entryPointValue), cursor, match, count)
-	}, func(values []string) interface{} {
-		scoredValuesMap := make(map[float64][]string)
+	}, func(allValues []interface{}, values []string) (result []interface{}) {
+		scoredValuesMap := make(map[float64]SortedSetValues)
+
+		var previousValue SortedSetValues
+		for _, val := range allValues {
+			previousValue = val.(SortedSetValues)
+			scoredValuesMap[previousValue.Score] = previousValue
+		}
+
 		// Result slice contains a sequence of "value score value score...".
+		// First group the values by score.
 		for i := 0; i < len(values); i = i + 2 {
 			score, err := strconv.ParseFloat(values[i+1], 64)
 			if err == nil {
-				scoredValues, ok := scoredValuesMap[score]
-				if ok {
-					scoredValues = append(scoredValues, values[i])
+				scoredValues, exists := scoredValuesMap[score]
+				if exists {
+					scoredValues.Values = append(scoredValues.Values, values[i])
 				} else {
-					scoredValues = []string{values[i]}
+					scoredValues = SortedSetValues{Score: score, Values: []string{values[i]}}
 				}
 				scoredValuesMap[score] = scoredValues
 			}
 		}
-		result := []interface{}{}
-		for score, values := range scoredValuesMap {
-			result = append(result, SortedSetValues{Score: score, Values: values})
+
+		for _, value := range scoredValuesMap {
+			// Sort the values for each score.
+			sort.Strings(value.Values)
+			result = append(result, value)
 		}
-		return result
+		// Sort the total results by score.
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].(SortedSetValues).Score < result[j].(SortedSetValues).Score
+		})
+		return
 	})
 }
 
-func (c *RedisClient) getListValues(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
+func (c *RedisClient) getListValues(entryPointValue datasource.EntryPoint, filter string) (datasource.DataBatch, error) {
+	var result datasource.DataBatch
 	values, err := c.client.LRange(string(entryPointValue), 0, -1).Result()
 	if err == nil {
 		if len(values) > 0 {
@@ -943,30 +1002,27 @@ func (c *RedisClient) getListValues(entryPointValue datasource.EntryPoint, filte
 					sendableValues = append(sendableValues, value)
 				}
 			}
-			target <- datasource.DataBatch{
+			result = datasource.DataBatch{
 				Size: uint64(len(sendableValues)),
 				Data: sendableValues,
 			}
 		}
-
-		// End of the stream.
-		target <- datasource.DataBatch{
-			Size: 0,
-		}
-		return datasource.Completed, nil
 	}
-	return datasource.None, err
+	return result, err
 }
 
-func (c *RedisClient) getFullHash(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
-	return c.scan(filter, target, func(cursor uint64, match string, count int64) *redis.ScanCmd {
+func (c *RedisClient) getFullHash(entryPointValue datasource.EntryPoint, filter string) (datasource.DataBatch, error) {
+	return c.fullScan(filter, func(cursor uint64, match string, count int64) *redis.ScanCmd {
 		return c.client.HScan(string(entryPointValue), cursor, match, count)
-	}, func(values []string) interface{} {
-		result := make(map[string]string)
+	}, func(allValues []interface{}, values []string) (result []interface{}) {
+		result = allValues
 		for i := 0; i < len(values); i = i + 2 {
-			result[values[i]] = values[i+1]
+			result = append(result, HashValue{values[i], values[i+1]})
 		}
-		return result
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].(HashValue).Key < result[j].(HashValue).Key
+		})
+		return
 	})
 }
 

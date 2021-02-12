@@ -189,6 +189,41 @@ func TestRedisClient_ListAllEntryPoints(t *testing.T) {
 	assert.Equal(t, 804, len(actualData)) // There are four root nodes plus all the leaves.
 }
 
+func TestRedisClient_ListAllEntryPointsWhenThereAreMoreThanChannelAndScanSize(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
+		},
+	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	for i := 0; i < (int(scanSize) + 100); i++ {
+		client.client.Set(strconv.Itoa(i), strconv.Itoa(i), time.Minute)
+	}
+
+	// List all the entry points in several parts.
+	dataChannel := make(chan datasource.DataBatch, 100)
+
+	// when
+	actionStatus, err := client.ListEntryPoints("*", dataChannel, 0, 1)
+
+	// then
+	assert.Nil(t, err)
+	assert.Equal(t, datasource.Moved, actionStatus)
+
+	actualData := []interface{}{}
+	for batch := range dataChannel {
+		actualData = append(actualData, batch.Data...)
+	}
+	assert.Equal(t, (int(scanSize) + 100), len(actualData))
+}
+
 func TestRedisClient_ListEntryPointsWithKeyHashTags(t *testing.T) {
 	// given
 	testData := []string{
@@ -497,9 +532,9 @@ func TestRedisClient_GetEntryPointInfosForHash(t *testing.T) {
 	}()
 
 	values := map[string]interface{}{
+		"my-field-3": true,
 		"my-field-1": "my-value",
 		"my-field-2": 1234,
-		"my-field-3": true,
 	}
 	client.client.HMSet("my-hash", values)
 	client.client.Expire("my-hash", time.Minute)
@@ -816,9 +851,9 @@ func TestRedisClient_GetContentForHash(t *testing.T) {
 	}()
 
 	values := map[string]interface{}{
+		"my-field-3": true,
 		"my-field-1": "my-value",
 		"my-field-2": 1234,
-		"my-field-3": true,
 	}
 	client.client.HMSet("my-hash", values)
 
@@ -830,17 +865,52 @@ func TestRedisClient_GetContentForHash(t *testing.T) {
 	// then
 	assert.Equal(t, datasource.Completed, actionStatus)
 	result := <-data
-	expected := datasource.DataBatch{
-		Size: 1,
-		Data: []interface{}{
-			map[string]string{
-				"my-field-1": "my-value",
-				"my-field-2": "1234",
-				"my-field-3": "1",
-			},
+
+	// The keys should be ordered.
+	assert.Equal(t, datasource.DataBatch{
+		Size: 3, Data: []interface{}{
+			HashValue{"my-field-1", "my-value"},
+			HashValue{"my-field-2", "1234"},
+			HashValue{"my-field-3", "1"},
+		},
+	}, result)
+}
+
+func TestRedisClient_GetContentForHashBiggerThanScanSize(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
-	assert.Equal(t, expected, result)
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	var values = map[string]interface{}{}
+	// Values are saved unsorted.
+	for i := int(scanSize) + 100 - 1; i >= 0; i-- {
+		values["my-field-"+fmt.Sprintf("%10d", i)] = "my-value-" + fmt.Sprintf("%10d", i)
+	}
+	client.client.HMSet("my-hash", values)
+
+	data := make(chan datasource.DataBatch, 100)
+
+	// when
+	actionStatus, err := client.GetContent("my-hash", "", data)
+
+	// then
+	assert.Equal(t, datasource.Completed, actionStatus)
+	result := <-data
+	var expectedValues []interface{}
+	// Result is expected sorted.
+	for i := 0; i < int(scanSize)+100; i++ {
+		expectedValues = append(expectedValues, HashValue{"my-field-" + fmt.Sprintf("%10d", i), "my-value-" + fmt.Sprintf("%10d", i)})
+	}
+	assert.Equal(t, datasource.DataBatch{Size: uint64(scanSize + 100), Data: expectedValues}, result)
 }
 
 func TestRedisClient_GetContentForSet(t *testing.T) {
@@ -872,15 +942,51 @@ func TestRedisClient_GetContentForSet(t *testing.T) {
 	// then
 	assert.Equal(t, datasource.Completed, actionStatus)
 	result := <-data
-	expected := datasource.DataBatch{
-		Size: 3,
-		Data: []interface{}{
-			"1",
-			"1234",
-			"my-value",
+
+	// The results are expected ordered.
+	assert.Equal(t, datasource.DataBatch{Size: 3, Data: []interface{}{
+		"1",
+		"1234",
+		"my-value",
+	}}, result)
+}
+
+func TestRedisClient_GetContentForSetBiggerThanScanSize(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
-	EqualUnorderedSlices(t, result.Data, expected.Data)
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	var values []interface{}
+	// Values are saved unordered.
+	for i := int(scanSize) + 100 - 1; i >= 0; i-- {
+		values = append(values, "my-value-"+fmt.Sprintf("%10d", i))
+	}
+	client.client.SAdd("my-set", values...)
+
+	data := make(chan datasource.DataBatch, 100)
+
+	// when
+	actionStatus, err := client.GetContent("my-set", "", data)
+
+	// then
+	assert.Equal(t, datasource.Completed, actionStatus)
+	result := <-data
+
+	var expected []interface{}
+	// Values are expected ordered.
+	for i := 0; i < int(scanSize)+100; i++ {
+		expected = append(expected, "my-value-"+fmt.Sprintf("%10d", i))
+	}
+	assert.Equal(t, datasource.DataBatch{Size: uint64(scanSize + 100), Data: expected}, result)
 }
 
 func TestRedisClient_GetContentForList(t *testing.T) {
@@ -902,7 +1008,7 @@ func TestRedisClient_GetContentForList(t *testing.T) {
 		1234,
 		true,
 	}
-	client.client.LPush("my-list", values...)
+	client.client.RPush("my-list", values...)
 
 	data := make(chan datasource.DataBatch, 100)
 
@@ -912,16 +1018,46 @@ func TestRedisClient_GetContentForList(t *testing.T) {
 	// then
 	assert.Equal(t, datasource.Completed, actionStatus)
 	result := <-data
-	expected := datasource.DataBatch{
-		Size: 3,
-		Data: []interface{}{
-			"my-value",
-			"1",
-			"1234",
+	assert.Equal(t, 3, len(result.Data))
+	assert.Equal(t, uint64(3), result.Size)
+	EqualUnorderedSlices(t, result.Data, []interface{}{
+		"my-value",
+		"1234",
+		"1",
+	})
+}
+
+func TestRedisClient_GetContentForListBiggerThanScanSize(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
 
-	EqualUnorderedSlices(t, result.Data, expected.Data)
+	var values []interface{}
+	// Values are saved unsorted.
+	for i := int(scanSize) + 100 - 1; i >= 0; i-- {
+		values = append(values, "my-value-"+fmt.Sprintf("%10d", i))
+	}
+	client.client.RPush("my-list", values...)
+
+	data := make(chan datasource.DataBatch, 100)
+
+	// when
+	actionStatus, err := client.GetContent("my-list", "", data)
+
+	// then
+	assert.Equal(t, datasource.Completed, actionStatus)
+	result := <-data
+	// Values are expected in saved order.
+	assert.Equal(t, datasource.DataBatch{uint64(scanSize + 100), values}, result)
 }
 
 func TestRedisClient_GetContentForOrderedSet(t *testing.T) {
@@ -942,6 +1078,10 @@ func TestRedisClient_GetContentForOrderedSet(t *testing.T) {
 		{
 			Score:  0.5,
 			Member: "my-first-value",
+		},
+		{
+			Score:  14.5,
+			Member: 324,
 		},
 		{
 			Score:  1.5,
@@ -975,33 +1115,66 @@ func TestRedisClient_GetContentForOrderedSet(t *testing.T) {
 	// then
 	assert.Equal(t, datasource.Completed, actionStatus)
 	result := <-data
-	expected := datasource.DataBatch{
-		Size: 5,
-		Data: []interface{}{
-			SortedSetValues{
-				Score:  0.5,
-				Values: []string{"my-first-value", "my-second-value"},
-			},
-			SortedSetValues{
-				Score:  1.5,
-				Values: []string{"1234"},
-			},
-			SortedSetValues{
-				Score:  2.5,
-				Values: []string{"my-third-value"},
-			},
-			SortedSetValues{
-				Score:  14.5,
-				Values: []string{"12654"},
-			},
-			SortedSetValues{
-				Score:  231.5,
-				Values: []string{"562763.76"},
-			},
+	// Result is expected ordered, by score and in the values sets as well.
+	assert.Equal(t, datasource.DataBatch{5, []interface{}{
+		SortedSetValues{
+			Score:  0.5,
+			Values: []string{"my-first-value", "my-second-value"},
+		},
+		SortedSetValues{
+			Score:  1.5,
+			Values: []string{"1234"},
+		},
+		SortedSetValues{
+			Score:  2.5,
+			Values: []string{"my-third-value"},
+		},
+		SortedSetValues{
+			Score:  14.5,
+			Values: []string{"12654", "324"},
+		},
+		SortedSetValues{
+			Score:  231.5,
+			Values: []string{"562763.76"},
+		},
+	},
+	}, result)
+}
+
+func TestRedisClient_GetContentForOrderedSetBiggerThanScanSize(t *testing.T) {
+	// given
+	client := RedisClient{
+		datasource: &datasource.DataSourceDescriptor{
+			Bootstrap: fmt.Sprintf("redis://%s:%d", redisIp, redisPort),
 		},
 	}
-	assert.Equal(t, result.Size, expected.Size)
-	EqualUnorderedSlices(t, result.Data, expected.Data)
+	err := client.Open()
+	assert.Nil(t, err)
+	defer func() {
+		client.client.FlushAll()
+		client.Close()
+	}()
+
+	var values = []redis.Z{}
+	for i := int(scanSize+100) - 1; i >= 0; i-- {
+		values = append(values, redis.Z{float64(i), "my-value-" + strconv.Itoa(i)})
+	}
+	err = client.client.ZAdd("my-zset", values...).Err()
+	assert.Nil(t, err)
+
+	data := make(chan datasource.DataBatch, 100)
+
+	// when
+	actionStatus, err := client.GetContent("my-zset", "", data)
+
+	// then
+	assert.Equal(t, datasource.Completed, actionStatus)
+	result := <-data
+	var expectedValues []interface{}
+	for i := 0; i < int(scanSize)+100; i++ {
+		expectedValues = append(expectedValues, SortedSetValues{float64(i), []string{"my-value-" + strconv.Itoa(i)}})
+	}
+	assert.Equal(t, datasource.DataBatch{Size: uint64(scanSize + 100), Data: expectedValues}, result)
 }
 
 func TestRedisClient_GetContentForMissingKey(t *testing.T) {
@@ -1288,7 +1461,7 @@ func TestRedisClient_SetAndGetValueWithExecuteCommand(t *testing.T) {
 	rs, _ := client.ExecuteCommand([]interface{}{"GET", "key"}, "")
 
 	// then
-	assert.Equal(t, rs, "value")
+	assert.Equal(t, "value", rs)
 }
 
 func TestRedisClient_ExecuteUnknownCommand(t *testing.T) {
