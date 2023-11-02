@@ -97,7 +97,7 @@ go install -v ./...
 
 ### Docker image (No need to build anything first)
 ```
-docker build . -t aerisconsulting/lagoon && docker push aerisconsulting/lagoon
+docker build . -t aerisconsulting/lagoon:snapshot && docker push aerisconsulting/lagoon:snapshot
 ```
 
 ## UI Misc

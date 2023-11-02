@@ -53,7 +53,7 @@ type DataSourceDescriptor struct {
 	ReadOnly      bool              `json:"readonly" yaml:"readonly"`
 	User          string            `json:"user" yaml:"user"`
 	Password      string            `json:"password" yaml:"password"`
-	Configuration map[string]string `json:"configuration" yaml:"configuration`
+	Configuration map[string]string `json:"configuration" yaml:"configuration"`
 }
 
 type EntryPoint string

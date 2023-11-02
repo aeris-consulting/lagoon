@@ -2,9 +2,11 @@ package redis
 
 // https://github.com/go-redis/redis/blob/master/example_test.go
 import (
+	"context"
+	tls2 "crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 	"lagoon/datasource"
 	"log"
 	"reflect"
@@ -108,7 +110,7 @@ func (c *RedisClient) GetInfos() (datasource.Cluster, error) {
 func getClusterInfos(c *redis.ClusterClient) (datasource.Cluster, error) {
 	result := []datasource.ClusterNode{}
 
-	clusterNodes, err := c.ClusterNodes().Result()
+	clusterNodes, err := c.ClusterNodes(context.Background()).Result()
 	if err != nil {
 		return datasource.Cluster{}, err
 	}
@@ -165,7 +167,7 @@ func getClusterStatus(c *redis.ClusterClient) (datasource.ClusterState, error) {
 	}
 
 	// First collect the infos at the cluster level.
-	clusterInfos, err := c.ClusterInfo().Result()
+	clusterInfos, err := c.ClusterInfo(context.Background()).Result()
 	if err != nil {
 		return result, err
 	}
@@ -180,11 +182,11 @@ func getClusterStatus(c *redis.ClusterClient) (datasource.ClusterState, error) {
 	result.StateSections = append(result.StateSections, clusterSection)
 
 	// Then collect at the node level.
-	err = c.ForEachNode(func(nodeClient *redis.Client) error {
-		id, err := nodeClient.Do("cluster", "myid").String()
-		if err == nil {
+	err = c.ForEachShard(context.Background(), func(ctx context.Context, nodeClient *redis.Client) error {
+		cmd := nodeClient.Do(ctx, "cluster", "myid")
+		if cmd.Err() == nil {
 			nodeState := datasource.NodeState{
-				NodeId:        id,
+				NodeId:        cmd.String(),
 				StateSections: []datasource.StateSection{},
 			}
 			err := getNodeInfo(nodeClient, &nodeState)
@@ -199,7 +201,7 @@ func getClusterStatus(c *redis.ClusterClient) (datasource.ClusterState, error) {
 }
 
 func getNodeInfo(nodeClient *redis.Client, nodeState *datasource.NodeState) error {
-	nodeInfos, err := nodeClient.Info().Result()
+	nodeInfos, err := nodeClient.Info(context.Background()).Result()
 	if err != nil {
 		return err
 	}
@@ -240,7 +242,7 @@ func convertClusterInfoAndPutValue(v string, section map[string]interface{}) {
 func (c *RedisClient) Open() error {
 	err := c.createConnection()
 	if err == nil {
-		pong, err := c.client.Ping().Result()
+		pong, err := c.client.Ping(context.Background()).Result()
 		if err == nil {
 			log.Printf("Connection status of ping: %v\n", pong)
 		} else {
@@ -252,7 +254,7 @@ func (c *RedisClient) Open() error {
 
 func (c *RedisClient) initReadonlyCommands() {
 	if c.datasource.ReadOnly && len(c.readOnlyCommands) == 0 {
-		for _, v := range c.client.Command().Val() {
+		for _, v := range c.client.Command(context.Background()).Val() {
 			if v.ReadOnly {
 				c.readOnlyCommands = append(c.readOnlyCommands, strings.ToLower(v.Name))
 			}
@@ -279,6 +281,12 @@ func (c *RedisClient) createClusterConnection(url string) error {
 	defaultOptions := redis.ClusterOptions{}
 
 	var e error
+	var user string
+	if c.datasource.User != "" {
+		user = c.datasource.User
+	} else {
+		user = defaultOptions.Username
+	}
 	var password string
 	if c.datasource.Password != "" {
 		password = c.datasource.Password
@@ -299,13 +307,6 @@ func (c *RedisClient) createClusterConnection(url string) error {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
-	maxConnAge := defaultOptions.MaxConnAge
-	if _, ok := c.datasource.Configuration["maxConnAge"]; ok {
-		age, err := strconv.Atoi(c.datasource.Configuration["maxConnAge"])
-		if err == nil {
-			maxConnAge = time.Duration(age) * time.Minute
-		}
-	}
 	minIdleConns := defaultOptions.MinIdleConns
 	if _, ok := c.datasource.Configuration["minIdleConns"]; ok {
 		c, err := strconv.Atoi(c.datasource.Configuration["minIdleConns"])
@@ -313,20 +314,71 @@ func (c *RedisClient) createClusterConnection(url string) error {
 			minIdleConns = c
 		}
 	}
+	maxIdleConns := defaultOptions.MaxIdleConns
+	if _, ok := c.datasource.Configuration["maxIdleConns"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["maxIdleConns"])
+		if err != nil {
+			maxIdleConns = c
+		}
+	}
+	poolSize := defaultOptions.PoolSize
+	if _, ok := c.datasource.Configuration["poolSize"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["poolSize"])
+		if err != nil {
+			poolSize = c
+		}
+	}
+	readonly := defaultOptions.ReadOnly
+	if _, ok := c.datasource.Configuration["readonly"]; ok {
+		c, err := strconv.ParseBool(c.datasource.Configuration["readonly"])
+		if err != nil {
+			readonly = c
+		}
+	}
+	routeRandomly := defaultOptions.RouteRandomly
+	if _, ok := c.datasource.Configuration["routeRandomly"]; ok {
+		c, err := strconv.ParseBool(c.datasource.Configuration["routeRandomly"])
+		if err != nil {
+			routeRandomly = c
+		}
+	}
+	tls := false
+	if _, ok := c.datasource.Configuration["tls-enabled"]; ok {
+		c, err := strconv.ParseBool(c.datasource.Configuration["tls-enabled"])
+		if err != nil {
+			tls = c
+		}
+	}
+	var tlsConfig tls2.Config
+	if tls {
+		insecureSkipVerify := false
+		if _, ok := c.datasource.Configuration["insecureSkipVerify"]; ok {
+			c, err := strconv.ParseBool(c.datasource.Configuration["insecureSkipVerify"])
+			if err != nil {
+				insecureSkipVerify = c
+			}
+		}
+		tlsConfig = tls2.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		}
+	}
 
 	opts := redis.ClusterOptions{
 		Addrs:         strings.Split(url, ","),
-		Password:      password,
-		ReadTimeout:   readTimeout,
-		WriteTimeout:  writeTimeout,
-		MaxConnAge:    maxConnAge,
-		MinIdleConns:  minIdleConns,
-		ReadOnly:      false,
-		RouteRandomly: false,
-		OnConnect: func(conn *redis.Conn) error {
+		ReadOnly:      readonly,
+		RouteRandomly: routeRandomly,
+		OnConnect: func(ctx context.Context, cn *redis.Conn) error {
 			log.Printf("Connected to the cluster %v \n", strings.Split(url, ","))
 			return nil
 		},
+		Username:     user,
+		Password:     password,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		PoolSize:     poolSize,
+		MinIdleConns: minIdleConns,
+		MaxIdleConns: maxIdleConns,
+		TLSConfig:    &tlsConfig,
 	}
 	client := redis.NewClusterClient(&opts)
 	c.client = client
@@ -341,6 +393,12 @@ func (c *RedisClient) createSentinelConnection(url string) error {
 	var e error
 	var password string
 
+	var user string
+	if c.datasource.User != "" {
+		user = c.datasource.User
+	} else {
+		user = defaultOptions.Username
+	}
 	if c.datasource.Password != "" {
 		password = c.datasource.Password
 	} else {
@@ -363,14 +421,6 @@ func (c *RedisClient) createSentinelConnection(url string) error {
 		}
 	}
 
-	maxConnAge := defaultOptions.MaxConnAge
-	if _, ok := c.datasource.Configuration["maxConnAge"]; ok {
-		age, err := strconv.Atoi(c.datasource.Configuration["maxConnAge"])
-		if err == nil {
-			maxConnAge = time.Duration(age) * time.Minute
-		}
-	}
-
 	minIdleConns := defaultOptions.MinIdleConns
 	if _, ok := c.datasource.Configuration["minIdleConns"]; ok {
 		c, err := strconv.Atoi(c.datasource.Configuration["minIdleConns"])
@@ -378,19 +428,64 @@ func (c *RedisClient) createSentinelConnection(url string) error {
 			minIdleConns = c
 		}
 	}
+	maxIdleConns := defaultOptions.MaxIdleConns
+	if _, ok := c.datasource.Configuration["maxIdleConns"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["maxIdleConns"])
+		if err != nil {
+			maxIdleConns = c
+		}
+	}
+	poolSize := defaultOptions.PoolSize
+	if _, ok := c.datasource.Configuration["poolSize"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["poolSize"])
+		if err != nil {
+			poolSize = c
+		}
+	}
+	db := defaultOptions.DB
+	if _, ok := c.datasource.Configuration["db"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["db"])
+		if err != nil {
+			db = c
+		}
+	}
+	tls := false
+	if _, ok := c.datasource.Configuration["tls-enabled"]; ok {
+		c, err := strconv.ParseBool(c.datasource.Configuration["tls-enabled"])
+		if err != nil {
+			tls = c
+		}
+	}
+	var tlsConfig tls2.Config
+	if tls {
+		insecureSkipVerify := false
+		if _, ok := c.datasource.Configuration["insecureSkipVerify"]; ok {
+			c, err := strconv.ParseBool(c.datasource.Configuration["insecureSkipVerify"])
+			if err != nil {
+				insecureSkipVerify = c
+			}
+		}
+		tlsConfig = tls2.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		}
+	}
 
 	opts := redis.FailoverOptions{
 		MasterName:    c.datasource.Configuration["master"],
 		SentinelAddrs: strings.Split(url, ","),
-		Password:      password,
-		ReadTimeout:   readTimeout,
-		WriteTimeout:  writeTimeout,
-		MaxConnAge:    maxConnAge,
-		MinIdleConns:  minIdleConns,
-		OnConnect: func(conn *redis.Conn) error {
+		OnConnect: func(ctx context.Context, cn *redis.Conn) error {
 			log.Printf("Connected to the sentinels %v \n", strings.Split(url, ","))
 			return nil
 		},
+		Username:     user,
+		Password:     password,
+		DB:           db,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		PoolSize:     poolSize,
+		MinIdleConns: minIdleConns,
+		MaxIdleConns: maxIdleConns,
+		TLSConfig:    &tlsConfig,
 	}
 	c.client = redis.NewFailoverClient(&opts)
 	log.Printf("Connection to the sentinels %v was created \n", strings.Split(url, ","))
@@ -401,6 +496,12 @@ func (c *RedisClient) createRedisConnection(url string) error {
 	defaultOptions := redis.Options{}
 
 	var e error
+	var user string
+	if c.datasource.User != "" {
+		user = c.datasource.User
+	} else {
+		user = defaultOptions.Username
+	}
 	var password string
 	if c.datasource.Password != "" {
 		password = c.datasource.Password
@@ -421,13 +522,6 @@ func (c *RedisClient) createRedisConnection(url string) error {
 			readTimeout = time.Duration(timeout) * time.Second
 		}
 	}
-	maxConnAge := defaultOptions.MaxConnAge
-	if _, ok := c.datasource.Configuration["maxConnAge"]; ok {
-		age, err := strconv.Atoi(c.datasource.Configuration["maxConnAge"])
-		if err == nil {
-			maxConnAge = time.Duration(age) * time.Minute
-		}
-	}
 	minIdleConns := defaultOptions.MinIdleConns
 	if _, ok := c.datasource.Configuration["minIdleConns"]; ok {
 		c, err := strconv.Atoi(c.datasource.Configuration["minIdleConns"])
@@ -435,17 +529,64 @@ func (c *RedisClient) createRedisConnection(url string) error {
 			minIdleConns = c
 		}
 	}
+	maxIdleConns := defaultOptions.MaxIdleConns
+	if _, ok := c.datasource.Configuration["maxIdleConns"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["maxIdleConns"])
+		if err != nil {
+			maxIdleConns = c
+		}
+	}
+	poolSize := defaultOptions.PoolSize
+	if _, ok := c.datasource.Configuration["poolSize"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["poolSize"])
+		if err != nil {
+			poolSize = c
+		}
+	}
+	db := defaultOptions.DB
+	if _, ok := c.datasource.Configuration["db"]; ok {
+		c, err := strconv.Atoi(c.datasource.Configuration["db"])
+		if err != nil {
+			db = c
+		}
+	}
+	tls := false
+	if _, ok := c.datasource.Configuration["tls-enabled"]; ok {
+		c, err := strconv.ParseBool(c.datasource.Configuration["tls-enabled"])
+		if err != nil {
+			tls = c
+		}
+	}
+	var tlsConfig tls2.Config
+	if tls {
+		insecureSkipVerify := false
+		if _, ok := c.datasource.Configuration["insecureSkipVerify"]; ok {
+			c, err := strconv.ParseBool(c.datasource.Configuration["insecureSkipVerify"])
+			if err != nil {
+				insecureSkipVerify = c
+			}
+		}
+		tlsConfig = tls2.Config{
+			InsecureSkipVerify: insecureSkipVerify,
+		}
+	}
+
 	opts := redis.Options{
-		Addr:         url,
-		Password:     password,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-		MaxConnAge:   maxConnAge,
-		MinIdleConns: minIdleConns,
-		OnConnect: func(conn *redis.Conn) error {
+		Addr:       url,
+		ClientName: "lagoon",
+		OnConnect: func(ctx context.Context, cn *redis.Conn) error {
 			log.Printf("Connected to the redis server %v \n", strings.Split(url, ","))
 			return nil
 		},
+		Username:     user,
+		Password:     password,
+		DB:           db,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		PoolSize:     poolSize,
+		MinIdleConns: minIdleConns,
+		MaxIdleConns: maxIdleConns,
+		TLSConfig:    &tlsConfig,
 	}
 	c.client = redis.NewClient(&opts)
 	return e
@@ -469,7 +610,7 @@ func (c *RedisClient) ListEntryPoints(filter string, entrypointsChannel chan<- d
 		actionStatus datasource.ActionStatus
 	)
 
-	err = c.client.Ping().Err()
+	err = c.client.Ping(context.Background()).Err()
 	if err == nil {
 		go c.extractEntryPointsWithLevels(err, filter, minTreeLevel, maxTreeLevel, entrypointsChannel)
 		actionStatus = datasource.Moved
@@ -527,8 +668,8 @@ func (c *RedisClient) scanAllNodes(scanFilter string, regexFilter *regexp2.Regex
 	switch client := c.client.(type) {
 	case *redis.ClusterClient:
 		mutex := sync.Mutex{}
-		loopError := client.ForEachMaster(func(node *redis.Client) error {
-			id := node.Do("cluster", "myid").Val()
+		loopError := client.ForEachMaster(context.Background(), func(ctx context.Context, node *redis.Client) error {
+			id := node.Do(ctx, "cluster", "myid").Val()
 			log.Printf("Scanning keys on master node %+v\n", id)
 			count, err := c.scanOneNode(node, false, scanFilter, regexFilter, minTreeLevel, maxTreeLevel, entrypoints, func() { mutex.Lock() }, func() { mutex.Unlock() })
 			scannedKeyCount = scannedKeyCount + count
@@ -555,7 +696,7 @@ func (c *RedisClient) scanOneNode(scanningRedisClient redis.Cmdable, validateOwn
 	excludedKeys := make(map[string]bool)
 
 	for err == nil {
-		keys, cursor, err = scanningRedisClient.Scan(cursor, scanFilter, scanSize).Result()
+		keys, cursor, err = scanningRedisClient.Scan(context.Background(), cursor, scanFilter, scanSize).Result()
 		if err == nil {
 			scannedKeyCount = scannedKeyCount + len(keys)
 			for _, key := range keys {
@@ -566,7 +707,7 @@ func (c *RedisClient) scanOneNode(scanningRedisClient redis.Cmdable, validateOwn
 
 				if validateOwnership {
 					// If the node belongs to a cluster, we validate the key exists and ignore it otherwise.
-					nodeType, err := scanningRedisClient.Type(key).Result()
+					nodeType, err := scanningRedisClient.Type(context.Background(), key).Result()
 					if "none" == strings.ToLower(nodeType) || err != nil {
 						continue
 					}
@@ -644,7 +785,7 @@ func (c *RedisClient) scan(filter string, dataChannel chan<- datasource.DataBatc
 		actionStatus datasource.ActionStatus
 	)
 
-	err = c.client.Ping().Err()
+	err = c.client.Ping(context.Background()).Err()
 	if err != nil {
 		return actionStatus, err
 	} else {
@@ -700,7 +841,7 @@ func (c *RedisClient) fullScan(filter string, scanFn func(cursor uint64, match s
 		result datasource.DataBatch
 	)
 
-	err = c.client.Ping().Err()
+	err = c.client.Ping(context.Background()).Err()
 	if err == nil {
 		var cursor uint64
 
@@ -765,7 +906,7 @@ func (c *RedisClient) GetEntryPointInfos(entryPointValue datasource.EntryPoint) 
 		err     error
 	)
 
-	keyType, err = c.client.Type(key).Result()
+	keyType, err = c.client.Type(context.Background(), key).Result()
 	var infos datasource.EntryPointInfos
 
 	if err == nil {
@@ -776,27 +917,27 @@ func (c *RedisClient) GetEntryPointInfos(entryPointValue datasource.EntryPoint) 
 		switch t {
 		case "string":
 			result = datasource.Value
-			length = uint64(c.client.StrLen(key).Val())
-			timeToLive = c.client.PTTL(key).Val()
+			length = uint64(c.client.StrLen(context.Background(), key).Val())
+			timeToLive = c.client.PTTL(context.Background(), key).Val()
 		case "set":
 			result = datasource.Set
-			length = uint64(c.client.SCard(key).Val())
-			timeToLive = c.client.PTTL(key).Val()
+			length = uint64(c.client.SCard(context.Background(), key).Val())
+			timeToLive = c.client.PTTL(context.Background(), key).Val()
 		case "zset":
 			result = datasource.ScoredSet
-			length = uint64(c.client.ZCard(key).Val())
-			timeToLive = c.client.PTTL(key).Val()
+			length = uint64(c.client.ZCard(context.Background(), key).Val())
+			timeToLive = c.client.PTTL(context.Background(), key).Val()
 		case "list":
 			result = datasource.List
-			length = uint64(c.client.LLen(key).Val())
-			timeToLive = c.client.PTTL(key).Val()
+			length = uint64(c.client.LLen(context.Background(), key).Val())
+			timeToLive = c.client.PTTL(context.Background(), key).Val()
 		case "hash":
 			result = datasource.Hash
-			length = uint64(c.client.HLen(key).Val())
-			timeToLive = c.client.PTTL(key).Val()
+			length = uint64(c.client.HLen(context.Background(), key).Val())
+			timeToLive = c.client.PTTL(context.Background(), key).Val()
 		case "stream":
 			result = datasource.Stream
-			length = uint64(c.client.XLen(key).Val())
+			length = uint64(c.client.XLen(context.Background(), key).Val())
 		case "none":
 			err = errors.New(fmt.Sprintf("Entrypoint %s was not found", entryPointValue))
 		default:
@@ -816,7 +957,7 @@ func (c *RedisClient) DeleteEntrypoint(entryPointValue datasource.EntryPoint) er
 	if c.datasource.ReadOnly {
 		return errors.New("the data source can be only read")
 	}
-	return c.client.Del(string(entryPointValue)).Err()
+	return c.client.Del(context.Background(), string(entryPointValue)).Err()
 }
 
 func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryPoint, errorChannel chan<- error) (datasource.ActionStatus, error) {
@@ -830,7 +971,7 @@ func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryP
 
 	scanFilter := string(entryPointValue) + ":*"
 
-	err = c.client.Ping().Err()
+	err = c.client.Ping(context.Background()).Err()
 	if err != nil {
 		return actionStatus, err
 	} else {
@@ -858,7 +999,7 @@ func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryP
 				// On a cluster, keys have to be deleted one by one, or by groups only if all the elements of the group belongs to the same slot.
 				for _, k := range keys {
 					log.Printf("Deleting %s...\n", k)
-					count, err := client.Del(k).Result()
+					count, err := client.Del(context.Background(), k).Result()
 					total = total + count
 					if err != nil {
 						log.Printf("ERROR while deleting %s: %s\n", k, err.Error())
@@ -868,7 +1009,7 @@ func (c *RedisClient) DeleteEntrypointChildren(entryPointValue datasource.EntryP
 					}
 				}
 			default:
-				total, err = client.Del(keys...).Result()
+				total, err = client.Del(context.Background(), keys...).Result()
 				if err != nil {
 					log.Printf("ERROR while deleting keys %s: %s\n", scanFilter, err.Error())
 					errorChannel <- err
@@ -887,7 +1028,7 @@ func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter s
 	)
 
 	key := string(entryPointValue)
-	statusCmd := c.client.Type(key)
+	statusCmd := c.client.Type(context.Background(), key)
 	err = statusCmd.Err()
 
 	if err == nil {
@@ -927,13 +1068,13 @@ func (c *RedisClient) GetContent(entryPointValue datasource.EntryPoint, filter s
 
 func (c *RedisClient) getValue(entryPointValue datasource.EntryPoint) (datasource.SingleValue, error) {
 	key := string(entryPointValue)
-	result := c.client.Get(key)
+	result := c.client.Get(context.Background(), key)
 	return result.Val(), result.Err()
 }
 
 func (c *RedisClient) getSetValues(entryPointValue datasource.EntryPoint, filter string) (datasource.DataBatch, error) {
 	return c.fullScan(filter, func(cursor uint64, match string, count int64) *redis.ScanCmd {
-		return c.client.SScan(string(entryPointValue), cursor, match, count)
+		return c.client.SScan(context.Background(), string(entryPointValue), cursor, match, count)
 	}, func(allValues []interface{}, values []string) (result []interface{}) {
 		result = allValues
 		for _, v := range values {
@@ -949,7 +1090,7 @@ func (c *RedisClient) getSetValues(entryPointValue datasource.EntryPoint, filter
 
 func (c *RedisClient) getZSetValues(entryPointValue datasource.EntryPoint, filter string) (datasource.DataBatch, error) {
 	return c.fullScan(filter, func(cursor uint64, match string, count int64) *redis.ScanCmd {
-		return c.client.ZScan(string(entryPointValue), cursor, match, count)
+		return c.client.ZScan(context.Background(), string(entryPointValue), cursor, match, count)
 	}, func(allValues []interface{}, values []string) (result []interface{}) {
 		scoredValuesMap := make(map[float64]SortedSetValues)
 
@@ -989,7 +1130,7 @@ func (c *RedisClient) getZSetValues(entryPointValue datasource.EntryPoint, filte
 
 func (c *RedisClient) getListValues(entryPointValue datasource.EntryPoint, filter string) (datasource.DataBatch, error) {
 	var result datasource.DataBatch
-	values, err := c.client.LRange(string(entryPointValue), 0, -1).Result()
+	values, err := c.client.LRange(context.Background(), string(entryPointValue), 0, -1).Result()
 	if err == nil {
 		if len(values) > 0 {
 			var regexp *regexp2.Regexp
@@ -1013,7 +1154,7 @@ func (c *RedisClient) getListValues(entryPointValue datasource.EntryPoint, filte
 
 func (c *RedisClient) getFullHash(entryPointValue datasource.EntryPoint, filter string) (datasource.DataBatch, error) {
 	return c.fullScan(filter, func(cursor uint64, match string, count int64) *redis.ScanCmd {
-		return c.client.HScan(string(entryPointValue), cursor, match, count)
+		return c.client.HScan(context.Background(), string(entryPointValue), cursor, match, count)
 	}, func(allValues []interface{}, values []string) (result []interface{}) {
 		result = allValues
 		for i := 0; i < len(values); i = i + 2 {
@@ -1027,7 +1168,7 @@ func (c *RedisClient) getFullHash(entryPointValue datasource.EntryPoint, filter 
 }
 
 func (c *RedisClient) getStream(entryPointValue datasource.EntryPoint, filter string, target chan<- datasource.DataBatch) (datasource.ActionStatus, error) {
-	messages, err := c.client.XRange(string(entryPointValue), "-", "+").Result()
+	messages, err := c.client.XRange(context.Background(), string(entryPointValue), "-", "+").Result()
 	if err == nil {
 		if len(messages) > 0 {
 			dataBatch := datasource.DataBatch{
@@ -1078,7 +1219,7 @@ func (c *RedisClient) ExecuteCommand(args []interface{}, nodeID string) (interfa
 		}
 	}
 
-	cmd := redis.NewCmd(args...)
+	cmd := redis.NewCmd(context.Background(), args...)
 	c.processCmd(cmd, nodeID)
 	return cmd.Result()
 }
@@ -1108,17 +1249,17 @@ func (c *RedisClient) isReadOnlyCommand(cmd string) bool {
 func (c *RedisClient) processCmd(cmd redis.Cmder, nodeID string) {
 	switch v := c.client.(type) {
 	case *redis.Client:
-		v.Process(cmd)
+		v.Process(context.Background(), cmd)
 	case *redis.ClusterClient:
 		if nodeID == "" {
-			v.Process(cmd)
+			v.Process(context.Background(), cmd)
 		} else {
-			v.ForEachNode(func(client *redis.Client) error {
-				myIDResult, err := client.Do("cluster", "myid").Result()
+			v.ForEachShard(context.Background(), func(ctx context.Context, client *redis.Client) error {
+				myIDResult, err := client.Do(ctx, "cluster", "myid").Result()
 				if err == nil {
 					myID := (myIDResult).(string)
 					if myID == nodeID {
-						client.Process(cmd)
+						client.Process(ctx, cmd)
 						return err
 					}
 				}

@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go"
@@ -67,7 +67,7 @@ func TestRedisClient_OpenAndCloseWithPassword(t *testing.T) {
 		},
 	}
 	err := client.Open()
-	client.client.ConfigSet("requirepass", "this-is-my-password")
+	client.client.ConfigSet(context.Background(), "requirepass", "this-is-my-password")
 
 	// when
 	_, err = client.ExecuteCommand([]interface{}{"info"}, "")
@@ -80,7 +80,7 @@ func TestRedisClient_OpenAndCloseWithPassword(t *testing.T) {
 		},
 	}
 	defer func() {
-		clientWithPassword.client.ConfigSet("requirepass", "")
+		clientWithPassword.client.ConfigSet(context.Background(), "requirepass", "")
 		clientWithPassword.Close()
 		client.Close()
 	}()
@@ -140,14 +140,14 @@ func TestRedisClient_ListAllEntryPoints(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
 	for _, d := range testData {
 		for i := 1; i <= d.count; i++ {
 			s := fmt.Sprintf("%s:%d", d.key, i)
-			client.client.Set(s, s, time.Minute)
+			client.client.Set(context.Background(), s, s, time.Minute)
 		}
 	}
 
@@ -199,12 +199,12 @@ func TestRedisClient_ListAllEntryPointsWhenThereAreMoreThanChannelAndScanSize(t 
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
 	for i := 0; i < (int(scanSize) + 100); i++ {
-		client.client.Set(strconv.Itoa(i), strconv.Itoa(i), time.Minute)
+		client.client.Set(context.Background(), strconv.Itoa(i), strconv.Itoa(i), time.Minute)
 	}
 
 	// List all the entry points in several parts.
@@ -240,12 +240,12 @@ func TestRedisClient_ListEntryPointsWithKeyHashTags(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
 	for _, d := range testData {
-		client.client.Set(d, d, time.Minute)
+		client.client.Set(context.Background(), d, d, time.Minute)
 	}
 
 	// List all the entry points in several parts.
@@ -302,14 +302,14 @@ func TestRedisClient_ListEntryPointsWithOneFilter(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
 	for _, d := range testData {
 		for i := 1; i <= d.count; i++ {
 			s := fmt.Sprintf("%s:%d", d.key, i)
-			client.client.Set(s, s, time.Minute)
+			client.client.Set(context.Background(), s, s, time.Minute)
 		}
 	}
 
@@ -386,14 +386,14 @@ func TestRedisClient_ListEntryPointsWithTwoFilters(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
 	for _, d := range testData {
 		for i := 1; i <= d.count; i++ {
 			s := fmt.Sprintf("%s:%d", d.key, i)
-			client.client.Set(s, s, time.Minute)
+			client.client.Set(context.Background(), s, s, time.Minute)
 		}
 	}
 
@@ -459,11 +459,11 @@ func TestRedisClient_GetEntryPointInfosForValue(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
-	client.client.Set("my-string", "my-value", time.Minute)
+	client.client.Set(context.Background(), "my-string", "my-value", time.Minute)
 
 	// when
 	infos, err := client.GetEntryPointInfos("my-string")
@@ -478,7 +478,7 @@ func TestRedisClient_GetEntryPointInfosForValue(t *testing.T) {
 	assertWithTimeToLive(t, expected, infos)
 
 	// given
-	client.client.Persist("my-string")
+	client.client.Persist(context.Background(), "my-string")
 
 	// when
 	infos, err = client.GetEntryPointInfos("my-string")
@@ -489,7 +489,7 @@ func TestRedisClient_GetEntryPointInfosForValue(t *testing.T) {
 	assertWithTimeToLive(t, expected, infos)
 
 	// given
-	client.client.Set("my-integer", 12345, -1)
+	client.client.Set(context.Background(), "my-integer", 12345, -1)
 
 	// when
 	infos, err = client.GetEntryPointInfos("my-string")
@@ -500,7 +500,7 @@ func TestRedisClient_GetEntryPointInfosForValue(t *testing.T) {
 	assertWithTimeToLive(t, expected, infos)
 
 	// given
-	client.client.Set("my-integer", true, -1)
+	client.client.Set(context.Background(), "my-integer", true, -1)
 
 	// when
 	infos, err = client.GetEntryPointInfos("my-string")
@@ -527,7 +527,7 @@ func TestRedisClient_GetEntryPointInfosForHash(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -536,8 +536,8 @@ func TestRedisClient_GetEntryPointInfosForHash(t *testing.T) {
 		"my-field-1": "my-value",
 		"my-field-2": 1234,
 	}
-	client.client.HMSet("my-hash", values)
-	client.client.Expire("my-hash", time.Minute)
+	client.client.HMSet(context.Background(), "my-hash", values)
+	client.client.Expire(context.Background(), "my-hash", time.Minute)
 
 	// when
 	infos, err := client.GetEntryPointInfos("my-hash")
@@ -553,7 +553,7 @@ func TestRedisClient_GetEntryPointInfosForHash(t *testing.T) {
 	assertWithTimeToLive(t, expected, infos)
 
 	// given
-	client.client.Persist("my-hash")
+	client.client.Persist(context.Background(), "my-hash")
 
 	// when
 	infos, err = client.GetEntryPointInfos("my-hash")
@@ -575,7 +575,7 @@ func TestRedisClient_GetEntryPointInfosForSet(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -584,8 +584,8 @@ func TestRedisClient_GetEntryPointInfosForSet(t *testing.T) {
 		1234,
 		true,
 	}
-	client.client.SAdd("my-set", values...)
-	client.client.Expire("my-set", time.Minute)
+	client.client.SAdd(context.Background(), "my-set", values...)
+	client.client.Expire(context.Background(), "my-set", time.Minute)
 
 	// when
 	infos, err := client.GetEntryPointInfos("my-set")
@@ -601,7 +601,7 @@ func TestRedisClient_GetEntryPointInfosForSet(t *testing.T) {
 	assertWithTimeToLive(t, expected, infos)
 
 	// given
-	client.client.Persist("my-set")
+	client.client.Persist(context.Background(), "my-set")
 
 	// when
 	infos, err = client.GetEntryPointInfos("my-set")
@@ -623,7 +623,7 @@ func TestRedisClient_GetEntryPointInfosForList(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -632,8 +632,8 @@ func TestRedisClient_GetEntryPointInfosForList(t *testing.T) {
 		1234,
 		true,
 	}
-	client.client.LPush("my-list", values...)
-	client.client.Expire("my-list", time.Minute)
+	client.client.LPush(context.Background(), "my-list", values...)
+	client.client.Expire(context.Background(), "my-list", time.Minute)
 
 	// when
 	infos, err := client.GetEntryPointInfos("my-list")
@@ -649,7 +649,7 @@ func TestRedisClient_GetEntryPointInfosForList(t *testing.T) {
 	assertWithTimeToLive(t, expected, infos)
 
 	// given
-	client.client.Persist("my-list")
+	client.client.Persist(context.Background(), "my-list")
 
 	// when
 	infos, err = client.GetEntryPointInfos("my-list")
@@ -671,7 +671,7 @@ func TestRedisClient_GetEntryPointInfosForOrderedSet(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -701,9 +701,9 @@ func TestRedisClient_GetEntryPointInfosForOrderedSet(t *testing.T) {
 			Member: 562763.76,
 		},
 	}
-	err = client.client.ZAdd("my-zset", values...).Err()
+	err = client.client.ZAdd(context.Background(), "my-zset", values...).Err()
 	assert.Nil(t, err)
-	client.client.Expire("my-zset", time.Minute)
+	client.client.Expire(context.Background(), "my-zset", time.Minute)
 
 	// when
 	infos, err := client.GetEntryPointInfos("my-zset")
@@ -719,7 +719,7 @@ func TestRedisClient_GetEntryPointInfosForOrderedSet(t *testing.T) {
 	assertWithTimeToLive(t, expected, infos)
 
 	// given
-	client.client.Persist("my-zset")
+	client.client.Persist(context.Background(), "my-zset")
 
 	// when
 	infos, err = client.GetEntryPointInfos("my-zset")
@@ -741,7 +741,7 @@ func TestRedisClient_GetEntryPointInfosForMissingKey(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -762,11 +762,11 @@ func TestRedisClient_GetContentForValue(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
-	client.client.Set("my-string", "my-value", -1)
+	client.client.Set(context.Background(), "my-string", "my-value", -1)
 	data := make(chan datasource.DataBatch, 1)
 
 	// when
@@ -784,7 +784,7 @@ func TestRedisClient_GetContentForValue(t *testing.T) {
 	}
 
 	// given
-	client.client.Set("my-integer", 12345, -1)
+	client.client.Set(context.Background(), "my-integer", 12345, -1)
 	data = make(chan datasource.DataBatch, 1)
 
 	// when
@@ -802,7 +802,7 @@ func TestRedisClient_GetContentForValue(t *testing.T) {
 	}
 
 	// givem
-	client.client.Set("my-boolean", true, -1)
+	client.client.Set(context.Background(), "my-boolean", true, -1)
 	data = make(chan datasource.DataBatch, 1)
 
 	// when
@@ -820,7 +820,7 @@ func TestRedisClient_GetContentForValue(t *testing.T) {
 	}
 
 	// given
-	client.client.Set("my-float", 1234.567, -1)
+	client.client.Set(context.Background(), "my-float", 1234.567, -1)
 	data = make(chan datasource.DataBatch, 1)
 
 	// when
@@ -846,7 +846,7 @@ func TestRedisClient_GetContentForHash(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -855,7 +855,7 @@ func TestRedisClient_GetContentForHash(t *testing.T) {
 		"my-field-1": "my-value",
 		"my-field-2": 1234,
 	}
-	client.client.HMSet("my-hash", values)
+	client.client.HMSet(context.Background(), "my-hash", values)
 
 	data := make(chan datasource.DataBatch, 100)
 
@@ -886,7 +886,7 @@ func TestRedisClient_GetContentForHashBiggerThanScanSize(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -895,7 +895,7 @@ func TestRedisClient_GetContentForHashBiggerThanScanSize(t *testing.T) {
 	for i := int(scanSize) + 100 - 1; i >= 0; i-- {
 		values["my-field-"+fmt.Sprintf("%10d", i)] = "my-value-" + fmt.Sprintf("%10d", i)
 	}
-	client.client.HMSet("my-hash", values)
+	client.client.HMSet(context.Background(), "my-hash", values)
 
 	data := make(chan datasource.DataBatch, 100)
 
@@ -923,7 +923,7 @@ func TestRedisClient_GetContentForSet(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -932,7 +932,7 @@ func TestRedisClient_GetContentForSet(t *testing.T) {
 		1234,
 		true,
 	}
-	client.client.SAdd("my-set", values...)
+	client.client.SAdd(context.Background(), "my-set", values...)
 
 	data := make(chan datasource.DataBatch, 100)
 
@@ -961,7 +961,7 @@ func TestRedisClient_GetContentForSetBiggerThanScanSize(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -970,7 +970,7 @@ func TestRedisClient_GetContentForSetBiggerThanScanSize(t *testing.T) {
 	for i := int(scanSize) + 100 - 1; i >= 0; i-- {
 		values = append(values, "my-value-"+fmt.Sprintf("%10d", i))
 	}
-	client.client.SAdd("my-set", values...)
+	client.client.SAdd(context.Background(), "my-set", values...)
 
 	data := make(chan datasource.DataBatch, 100)
 
@@ -999,7 +999,7 @@ func TestRedisClient_GetContentForList(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1008,7 +1008,7 @@ func TestRedisClient_GetContentForList(t *testing.T) {
 		1234,
 		true,
 	}
-	client.client.RPush("my-list", values...)
+	client.client.RPush(context.Background(), "my-list", values...)
 
 	data := make(chan datasource.DataBatch, 100)
 
@@ -1037,7 +1037,7 @@ func TestRedisClient_GetContentForListBiggerThanScanSize(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1046,7 +1046,7 @@ func TestRedisClient_GetContentForListBiggerThanScanSize(t *testing.T) {
 	for i := int(scanSize) + 100 - 1; i >= 0; i-- {
 		values = append(values, "my-value-"+fmt.Sprintf("%10d", i))
 	}
-	client.client.RPush("my-list", values...)
+	client.client.RPush(context.Background(), "my-list", values...)
 
 	data := make(chan datasource.DataBatch, 100)
 
@@ -1070,7 +1070,7 @@ func TestRedisClient_GetContentForOrderedSet(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1104,7 +1104,7 @@ func TestRedisClient_GetContentForOrderedSet(t *testing.T) {
 			Member: 562763.76,
 		},
 	}
-	err = client.client.ZAdd("my-zset", values...).Err()
+	err = client.client.ZAdd(context.Background(), "my-zset", values...).Err()
 	assert.Nil(t, err)
 
 	data := make(chan datasource.DataBatch, 100)
@@ -1151,7 +1151,7 @@ func TestRedisClient_GetContentForOrderedSetBiggerThanScanSize(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1159,7 +1159,7 @@ func TestRedisClient_GetContentForOrderedSetBiggerThanScanSize(t *testing.T) {
 	for i := int(scanSize+100) - 1; i >= 0; i-- {
 		values = append(values, redis.Z{float64(i), "my-value-" + strconv.Itoa(i)})
 	}
-	err = client.client.ZAdd("my-zset", values...).Err()
+	err = client.client.ZAdd(context.Background(), "my-zset", values...).Err()
 	assert.Nil(t, err)
 
 	data := make(chan datasource.DataBatch, 100)
@@ -1187,7 +1187,7 @@ func TestRedisClient_GetContentForMissingKey(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1220,20 +1220,20 @@ func TestRedisClient_DeleteEntrypointChildren(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
 	for _, d := range testData {
 		// In the case, also create the parent to check it is not deleted.
-		client.client.Set(d.key, d.key, time.Minute)
+		client.client.Set(context.Background(), d.key, d.key, time.Minute)
 		for i := 1; i <= d.count; i++ {
 			s := fmt.Sprintf("%s:%d", d.key, i)
-			client.client.Set(s, s, time.Minute)
+			client.client.Set(context.Background(), s, s, time.Minute)
 		}
 	}
 	// Check the number of keys before.
-	keys, err := client.client.Keys("*").Result()
+	keys, err := client.client.Keys(context.Background(), "*").Result()
 	assert.Nil(t, err)
 	if len(keys) != 804 { // There are three root nodes plus all their leaves.
 		t.Fatalf("Expected result size is %d, but actual is %d", 804, len(keys))
@@ -1252,7 +1252,7 @@ func TestRedisClient_DeleteEntrypointChildren(t *testing.T) {
 	err = <-errorChannel
 	assert.Nil(t, err)
 
-	keys, err = client.client.Keys("*").Result()
+	keys, err = client.client.Keys(context.Background(), "*").Result()
 	assert.Nil(t, err)
 	if len(keys) != 604 { // There are still four root nodes plus all the leaves of only three of them.
 		t.Fatalf("Expected result size is %d, but actual is %d", 604, len(keys))
@@ -1269,7 +1269,7 @@ func TestRedisClient_DeleteEntrypointChildrenInReadOnlyMode(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1302,20 +1302,20 @@ func TestRedisClient_DeleteEntrypoint(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
 	for _, d := range testData {
 		// In the case, also create the parent to check that only this one is delete.
-		client.client.Set(d.key, d.key, time.Minute)
+		client.client.Set(context.Background(), d.key, d.key, time.Minute)
 		for i := 1; i <= d.count; i++ {
 			s := fmt.Sprintf("%s:%d", d.key, i)
-			client.client.Set(s, s, time.Minute)
+			client.client.Set(context.Background(), s, s, time.Minute)
 		}
 	}
 	// Check the number of keys before.
-	keys, err := client.client.Keys("*").Result()
+	keys, err := client.client.Keys(context.Background(), "*").Result()
 	assert.Nil(t, err)
 	if len(keys) != 804 { // There are three root nodes plus all their leaves.
 		t.Fatalf("Expected result size is %d, but actual is %d", 804, len(keys))
@@ -1327,7 +1327,7 @@ func TestRedisClient_DeleteEntrypoint(t *testing.T) {
 	// then
 	assert.Nil(t, err)
 
-	keys, err = client.client.Keys("*").Result()
+	keys, err = client.client.Keys(context.Background(), "*").Result()
 	assert.Nil(t, err)
 	if len(keys) != 803 { // There are three root nodes plus all the leaves of all four nodes.
 		t.Fatalf("Expected result size is %d, but actual is %d", 803, len(keys))
@@ -1345,7 +1345,7 @@ func TestRedisClient_DeleteEntrypointInReadOnlyMode(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1368,7 +1368,7 @@ func TestRedisClient_CommandInReadOnlyMode(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1404,7 +1404,7 @@ func TestRedisClient_GetInfos(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1426,7 +1426,7 @@ func TestRedisClient_GetStatus(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 
@@ -1452,7 +1452,7 @@ func TestRedisClient_SetAndGetValueWithExecuteCommand(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 	_, _ = client.ExecuteCommand([]interface{}{"SET", "key", "value"}, "")
@@ -1476,7 +1476,7 @@ func TestRedisClient_ExecuteUnknownCommand(t *testing.T) {
 	err := client.Open()
 	assert.Nil(t, err)
 	defer func() {
-		client.client.FlushAll()
+		client.client.FlushAll(context.Background())
 		client.Close()
 	}()
 

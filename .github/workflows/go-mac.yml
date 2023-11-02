@@ -1,7 +1,7 @@
-name: Go
+name: Go-Mac
 
 on:
-  pull_request:
+  push:
     branches:
       - main
 
@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: ['ubuntu-latest','windows-latest','macos-latest']
+        os: [ 'macos-latest' ]
     steps:
       - name: Set up Go 1.17
         uses: actions/setup-go@v4
@@ -24,9 +24,19 @@ jobs:
 
       - name: Get dependencies
         working-directory: ./src/lagoon
+        run: go get -v -t -d ./...
+
+      - name: Set version as variable
         run: |
-          go get -v -t -d ./...
+          VER=$(cat VERSION)
+          echo "VERSION=$VER" >> $GITHUB_ENV
 
       - name: Build
         working-directory: ./src/lagoon
-        run: go build -v .
+        run: mkdir lagoon-macos-amd64-${{ env.VERSION }} && go build -v -o lagoon-macos-amd64-${{ env.VERSION }} ./...
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v3
+        with:
+          name: lagoon-macos-amd64-${{ env.VERSION }}
+          path: ./lagoon-*
